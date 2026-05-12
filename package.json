@@ -16,7 +16,13 @@
     "dev:api": "npm -w api run dev",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "build": "npm -w @sijagaair/shared run build && npm -w @sijagaair/mqtt-collector exec -- tsc && npm -w @sijagaair/data-processing exec -- tsc && npm -w @sijagaair/notification-gateway exec -- tsc && npm -w @sijagaair/api exec -- tsc",
-    "build:shared": "npm -w @sijagaair/shared run build"
+    "build:shared": "npm -w @sijagaair/shared run build",
+    "start": "concurrently --names \"collector,processing,notification,api\" --prefix-colors \"cyan,yellow,magenta,green\" \"npm run start:collector\" \"npm run start:processing\" \"npm run start:notification\" \"npm run start:api\"",
+    "start:collector": "npm -w mqtt-collector run start",
+    "start:processing": "npm -w data-processing run start",
+    "start:notification": "npm -w notification-gateway run start",
+    "start:api": "npm -w api run start",
+    "build:start": "npm run build && npm run start"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
