@@ -77,3 +77,24 @@ Hasil di **`dist/`** — deploy sebagai situs statis (Nginx, S3+CloudFront, Verc
 
 - Skema DB & migrasi: `supabase/README.md`
 - Fitur sistem (bahasa mudah): `../plans/SiJagaAir-Fitur-dan-Contoh-Kasus.md`
+
+---
+
+## Jalankan dengan PM2
+
+```bash
+cd sijagaair-api
+npm ci
+npm run build
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+Kelola proses:
+
+```bash
+pm2 ls
+pm2 logs
+pm2 restart ecosystem.config.cjs
+pm2 stop ecosystem.config.cjs
+```
