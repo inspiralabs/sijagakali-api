@@ -48,5 +48,13 @@ module.exports = {
         NODE_ENV: "production",
       },
     },
+    {
+      name: "sijagaair-tunnel",
+      script: "cloudflared",
+      args: "tunnel --url http://localhost:3001",
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 5000,
+    },
   ],
 };
