@@ -56,6 +56,17 @@ export interface NotificationEvent {
   water_status: 'normal' | 'waspada' | 'siaga' | 'bahaya';
   cctv_image_path: string | null;
   recorded_at: string;
+  /** `deployments.display_name` untuk placeholder {wilayah} */
+  deployment_display_name: string;
+  read_interval_sec: number;
+  threshold_waspada_cm: number;
+  threshold_siaga_cm: number;
+  threshold_bahaya_cm: number;
+  /** cm di atas ambang waspada (≥0), untuk {selisih} */
+  selisih_cm: number;
+  contact_petugas: string | null;
+  contact_bpbd: string | null;
+  contact_posko: string | null;
 }
 
 export type WaterStatus = 'normal' | 'waspada' | 'siaga' | 'bahaya';

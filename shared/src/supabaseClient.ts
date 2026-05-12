@@ -1,13 +1,16 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ENV } from './env.js';
 
-let _client: SupabaseClient | null = null;
+/** Klien server tanpa generics schema DB (PostgREST memakai `db.schema` saat runtime). */
+type ServerSupabase = SupabaseClient<any, any, any, any, any>;
+
+let _client: ServerSupabase | null = null;
 
 /**
  * Singleton Supabase client memakai service_role — hanya untuk server.
  * Schema default: sijagaair.
  */
-export function getSupabase(): SupabaseClient {
+export function getSupabase(): ServerSupabase {
   if (!_client) {
     _client = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
       db: { schema: 'sijagaair' },
@@ -18,7 +21,7 @@ export function getSupabase(): SupabaseClient {
 }
 
 /** Client khusus untuk Storage (schema public, tapi auth service role). */
-export function getSupabaseStorage(): SupabaseClient {
+export function getSupabaseStorage(): ServerSupabase {
   return createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
