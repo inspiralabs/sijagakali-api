@@ -1,63 +1,59 @@
-/** Build teks preview notifikasi (sama format dengan gateway). */
+import {
+  formatWaMessage,
+  buildSyntheticNotificationEvent,
+  type DeploymentWaRow,
+  type NotificationEvent,
+} from '@sijagaair/shared';
 
-const STATUS_LABEL: Record<string, string> = {
-  normal: 'Siaga 4 — Normal',
-  waspada: 'Siaga 3 — Waspada',
-  siaga: 'Siaga 2 — Siaga',
-  bahaya: 'Siaga 1 — BAHAYA',
-};
+export const DEPLOYMENT_WA_COLUMNS =
+  'display_name,whatsapp_message_template,wa_template_normal,wa_template_waspada,wa_template_siaga,wa_template_bahaya,contact_petugas,contact_bpbd,contact_posko';
 
-export function buildTestPreview(opts: {
-  locationName: string;
+export type SkipImageReason = 'unchecked' | 'no_path' | 'signed_url_failed' | 'image_download_failed';
+
+export function parseWaterStatus(raw: string): NotificationEvent['water_status'] | null {
+  const s = String(raw).toLowerCase();
+  if (s === 'normal' || s === 'waspada' || s === 'siaga' || s === 'bahaya') return s;
+  return null;
+}
+
+export function buildTestPreview(
+  event: NotificationEvent,
+  deploymentRow: Partial<DeploymentWaRow> | null,
+  dashboardUrl: string
+): string {
+  const text = formatWaMessage(event, deploymentRow, dashboardUrl);
+  return `[TEST]\n${text}`;
+}
+
+export function buildTestEventFromDeviceAndDeployment(opts: {
+  slug: string;
+  device_id: string;
+  location_name: string;
   water_level_cm: number;
-  water_status: string;
-  template: string | null;
-  dashboardUrl: string;
-  isTest: boolean;
-}): string {
-  const { locationName, water_level_cm, water_status, template, dashboardUrl, isTest } = opts;
-
-  const now = new Date();
-  const tanggal = now.toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Asia/Jakarta',
-  });
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const wib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-  const jam = `${pad(wib.getHours())}:${pad(wib.getMinutes())}:${pad(wib.getSeconds())}`;
-  const waktu = `${tanggal} ${jam}`;
-
-  const statusLabel = STATUS_LABEL[water_status] ?? water_status.toUpperCase();
-  const levelM = (water_level_cm / 100).toFixed(2);
-
-  let text: string;
-
-  if (template) {
-    text = template
-      .replace(/{lokasi}/g, locationName)
-      .replace(/{level_cm}/g, water_level_cm.toFixed(1))
-      .replace(/{level_m}/g, levelM)
-      .replace(/{status}/g, statusLabel)
-      .replace(/{waktu}/g, waktu)
-      .replace(/{dashboard_url}/g, dashboardUrl);
-  } else {
-    const lines = [
-      '*SiJagaAir EWS Bojong Kulur*',
-      'Laporan Tinggi Muka Air',
-      '',
-      `Lokasi   : ${locationName}`,
-      `Waktu    : ${waktu}`,
-      '',
-      'Laporan:',
-      `Ketinggian : ${levelM} m (${water_level_cm.toFixed(1)} cm)`,
-      `Status     : ${statusLabel}`,
-      '',
-      `Dashboard  : ${dashboardUrl}`,
-    ];
-    text = lines.join('\n');
-  }
-
-  return isTest ? `[TEST]\n${text}` : text;
+  water_status: NotificationEvent['water_status'];
+  read_interval_sec: number;
+  threshold_waspada_cm: number;
+  threshold_siaga_cm: number;
+  threshold_bahaya_cm: number;
+  deploymentRow: Partial<DeploymentWaRow> | null;
+}): NotificationEvent {
+  const { deploymentRow, slug, ...rest } = opts;
+  return buildSyntheticNotificationEvent(
+    {
+      deployment_slug: slug,
+      device_id: rest.device_id,
+      location_name: rest.location_name,
+      water_level_cm: rest.water_level_cm,
+      water_status: rest.water_status,
+      deployment_display_name: deploymentRow?.display_name ?? slug,
+      read_interval_sec: rest.read_interval_sec,
+      threshold_waspada_cm: rest.threshold_waspada_cm,
+      threshold_siaga_cm: rest.threshold_siaga_cm,
+      threshold_bahaya_cm: rest.threshold_bahaya_cm,
+      contact_petugas: deploymentRow?.contact_petugas ?? null,
+      contact_bpbd: deploymentRow?.contact_bpbd ?? null,
+      contact_posko: deploymentRow?.contact_posko ?? null,
+    },
+    { readingIdPrefix: 'preview' }
+  );
 }
