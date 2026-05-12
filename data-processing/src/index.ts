@@ -1,13 +1,16 @@
 import 'dotenv/config';
-import { EventEmitter } from 'node:events';
-import { getSupabase, ENV, calcWaterStatus, type NotificationEvent } from '@sijagaair/shared';
+import {
+  getSupabase,
+  ENV,
+  calcWaterStatus,
+  computeSelisihCmAboveWaspada,
+  notifEmitter,
+  type NotificationEvent,
+} from '@sijagaair/shared';
 import { shouldNotify } from './notificationPolicy.js';
 
 const supabase = getSupabase();
 const defaultDeployment = ENV.DEFAULT_DEPLOYMENT_SLUG;
-
-/** EventEmitter dipakai notification-gateway untuk subscribe event */
-export const notifEmitter = new EventEmitter();
 
 type MqttIngestionRow = {
   id: string;
@@ -24,6 +27,7 @@ type DeviceConfigRow = {
   deployment_slug: string;
   device_id: string;
   location_name: string;
+  read_interval_sec: number;
   threshold_waspada_cm: number;
   threshold_siaga_cm: number;
   threshold_bahaya_cm: number;
@@ -49,7 +53,7 @@ async function getDeviceConfig(
   const { data, error } = await supabase
     .from('device_configs')
     .select(
-      'deployment_slug,device_id,location_name,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec'
+      'deployment_slug,device_id,location_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec'
     )
     .eq('deployment_slug', deploymentSlug)
     .eq('device_id', deviceId)
@@ -62,6 +66,27 @@ async function getDeviceConfig(
 
   configCache.set(key, data as DeviceConfigRow);
   return data as DeviceConfigRow;
+}
+
+type DeploymentNotifyRow = {
+  display_name: string;
+  contact_petugas: string | null;
+  contact_bpbd: string | null;
+  contact_posko: string | null;
+};
+
+async function getDeploymentNotifyRow(deploymentSlug: string): Promise<DeploymentNotifyRow | null> {
+  const { data, error } = await supabase
+    .from('deployments')
+    .select('display_name,contact_petugas,contact_bpbd,contact_posko')
+    .eq('slug', deploymentSlug)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.error('[processing] getDeploymentNotifyRow error:', error.message);
+    return null;
+  }
+  return data as DeploymentNotifyRow;
 }
 
 async function tryDispatch(correlationId: string, deploymentSlug: string) {
@@ -138,6 +163,8 @@ async function tryDispatch(correlationId: string, deploymentSlug: string) {
 
   const notify = shouldNotify(slug, deviceId, waterLevelCm, waterStatus, config);
   if (notify) {
+    const dep = await getDeploymentNotifyRow(slug);
+    const selisih_cm = computeSelisihCmAboveWaspada(waterLevelCm, config.threshold_waspada_cm);
     const event: NotificationEvent = {
       reading_id: reading.id as string,
       deployment_slug: slug,
@@ -147,6 +174,15 @@ async function tryDispatch(correlationId: string, deploymentSlug: string) {
       water_status: waterStatus,
       cctv_image_path: cctvRow?.cctv_storage_path ?? null,
       recorded_at: recordedAt,
+      deployment_display_name: dep?.display_name ?? slug,
+      read_interval_sec: config.read_interval_sec,
+      threshold_waspada_cm: config.threshold_waspada_cm,
+      threshold_siaga_cm: config.threshold_siaga_cm,
+      threshold_bahaya_cm: config.threshold_bahaya_cm,
+      selisih_cm,
+      contact_petugas: dep?.contact_petugas ?? null,
+      contact_bpbd: dep?.contact_bpbd ?? null,
+      contact_posko: dep?.contact_posko ?? null,
     };
     notifEmitter.emit('notify', event);
     console.log(`[processing] notif event emitted for device=${deviceId} status=${waterStatus}`);
@@ -200,5 +236,3 @@ startRealtime();
 pollPending().catch(console.error);
 
 console.log('[processing] data-processing service started');
-
-export default notifEmitter;
