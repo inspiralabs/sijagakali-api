@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@sijagaair/shared": ["../shared/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

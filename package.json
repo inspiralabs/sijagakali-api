@@ -1,0 +1,23 @@
+{
+  "name": "sijagaair-api",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "mqtt-collector",
+    "data-processing",
+    "notification-gateway",
+    "api"
+  ],
+  "scripts": {
+    "dev": "concurrently --names \"collector,processing,notification,api\" --prefix-colors \"cyan,yellow,magenta,green\" \"npm run dev:collector\" \"npm run dev:processing\" \"npm run dev:notification\" \"npm run dev:api\"",
+    "dev:collector": "npm -w mqtt-collector run dev",
+    "dev:processing": "npm -w data-processing run dev",
+    "dev:notification": "npm -w notification-gateway run dev",
+    "dev:api": "npm -w api run dev",
+    "seed:admin": "tsx scripts/seed-admin.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.4"
+  }
+}

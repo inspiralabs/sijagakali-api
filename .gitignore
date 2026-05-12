@@ -1,0 +1,9 @@
+.env
+.env.local
+*.pem
+node_modules/
+dist/
+
+# whatsapp-web.js / puppeteer — jangan commit profil browser lokal
+.wwebjs_auth/
+.wwebjs_cache/
