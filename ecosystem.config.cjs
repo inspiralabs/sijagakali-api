@@ -8,9 +8,6 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       restart_delay: 3000,
-      env: {
-        NODE_ENV: "production",
-      },
     },
     {
       name: "sijagaair-mqtt-collector",
@@ -20,9 +17,6 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       restart_delay: 3000,
-      env: {
-        NODE_ENV: "production",
-      },
     },
     {
       name: "sijagaair-data-processing",
@@ -32,9 +26,6 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       restart_delay: 3000,
-      env: {
-        NODE_ENV: "production",
-      },
     },
     {
       name: "sijagaair-notification-gateway",
@@ -44,9 +35,6 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       restart_delay: 3000,
-      env: {
-        NODE_ENV: "production",
-      },
     },
     {
       name: "sijagaair-tunnel",
