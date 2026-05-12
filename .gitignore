@@ -4,6 +4,12 @@
 node_modules/
 dist/
 
+# Artefak tsc yang tidak sengaja di-emmit ke src (output resmi: dist/)
+shared/src/**/*.js
+shared/src/**/*.d.ts
+data-processing/src/**/*.js
+data-processing/src/**/*.d.ts
+
 # whatsapp-web.js / puppeteer — jangan commit profil browser lokal
 .wwebjs_auth/
 .wwebjs_cache/
