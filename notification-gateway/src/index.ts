@@ -1,11 +1,19 @@
 import 'dotenv/config';
 import { createRequire } from 'module';
 import Fastify from 'fastify';
-import { getSupabaseStorage, getSupabase, ENV, type NotificationEvent } from '@sijagaair/shared';
-import { notifEmitter } from '../../data-processing/src/index.js';
+import {
+  getSupabaseStorage,
+  getSupabase,
+  ENV,
+  notifEmitter,
+  type NotificationEvent,
+  type DeploymentWaRow,
+  formatWaMessage,
+  buildSyntheticNotificationEvent,
+  createCctvSignedUrlFlexible,
+} from '@sijagaair/shared';
 import { getWhatsAppClient, isWhatsAppReady, resolveChannelTarget } from './whatsappClient.js';
 
-// whatsapp-web.js adalah CommonJS — harus di-require
 const require = createRequire(import.meta.url);
 const { MessageMedia } = require('whatsapp-web.js') as typeof import('whatsapp-web.js');
 
@@ -13,145 +21,103 @@ const supabase = getSupabase();
 const supabaseStorage = getSupabaseStorage();
 const bucket = ENV.SUPABASE_STORAGE_BUCKET_CCTV_IMAGES;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cache template pesan kustom per deployment — TTL 5 menit
-// Agar perubahan template dari admin UI berlaku tanpa restart gateway.
-// ─────────────────────────────────────────────────────────────────────────────
-const TEMPLATE_TTL_MS = 5 * 60 * 1000; // 5 menit
+const TEMPLATE_TTL_MS = 5 * 60 * 1000;
+
+const DEPLOYMENT_WA_SELECT =
+  'display_name,whatsapp_message_template,wa_template_normal,wa_template_waspada,wa_template_siaga,wa_template_bahaya,contact_petugas,contact_bpbd,contact_posko';
 
 interface CacheEntry {
-  value: string | null;
+  value: Partial<DeploymentWaRow> | null;
   expiresAt: number;
 }
 
 const templateCache = new Map<string, CacheEntry>();
 
-async function getTemplate(deploymentSlug: string): Promise<string | null> {
+async function getDeploymentWaRow(deploymentSlug: string): Promise<Partial<DeploymentWaRow> | null> {
   const entry = templateCache.get(deploymentSlug);
   if (entry && Date.now() < entry.expiresAt) {
     return entry.value;
   }
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('deployments')
-    .select('whatsapp_message_template')
+    .select(DEPLOYMENT_WA_SELECT)
     .eq('slug', deploymentSlug)
     .maybeSingle();
-  const tmpl = data?.whatsapp_message_template ?? null;
-  templateCache.set(deploymentSlug, { value: tmpl, expiresAt: Date.now() + TEMPLATE_TTL_MS });
-  return tmpl;
+
+  if (error) {
+    console.error('[notification-gateway] getDeploymentWaRow:', error.message);
+    templateCache.set(deploymentSlug, { value: null, expiresAt: Date.now() + TEMPLATE_TTL_MS });
+    return null;
+  }
+
+  const row = (data ?? null) as Partial<DeploymentWaRow> | null;
+  templateCache.set(deploymentSlug, { value: row, expiresAt: Date.now() + TEMPLATE_TTL_MS });
+  return row;
 }
 
-/** Paksa refresh cache deployment tertentu (dipanggil setelah template diubah). */
 function invalidateTemplateCache(deploymentSlug: string) {
   templateCache.delete(deploymentSlug);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Format pesan — template kustom atau default
-// ─────────────────────────────────────────────────────────────────────────────
-const STATUS_LABEL: Record<string, string> = {
-  normal:  'Siaga 4 — Normal',
-  waspada: 'Siaga 3 — Waspada',
-  siaga:   'Siaga 2 — Siaga',
-  bahaya:  'Siaga 1 — BAHAYA',
-};
-
-function formatMessage(
-  event: NotificationEvent,
-  template: string | null,
-  prefix = '',
-): string {
-  const ts = new Date(event.recorded_at);
-  const tanggal = ts.toLocaleDateString('id-ID', {
-    day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta',
-  });
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const wib = new Date(ts.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-  const jam = `${pad(wib.getHours())}:${pad(wib.getMinutes())}:${pad(wib.getSeconds())}`;
-  const waktu = `${tanggal} ${jam}`;
-
-  const statusLabel = STATUS_LABEL[event.water_status] ?? event.water_status.toUpperCase();
-  const levelM = (event.water_level_cm / 100).toFixed(2);
-  const dashboardUrl = ENV.DASHBOARD_URL || `${ENV.ALLOWED_ORIGIN}/public`;
-
-  let text: string;
-
-  if (template) {
-    text = template
-      .replace(/{lokasi}/g, event.location_name)
-      .replace(/{level_cm}/g, event.water_level_cm.toFixed(1))
-      .replace(/{level_m}/g, levelM)
-      .replace(/{status}/g, statusLabel)
-      .replace(/{waktu}/g, waktu)
-      .replace(/{dashboard_url}/g, dashboardUrl);
-  } else {
-    const lines = [
-      '*SiJagaAir EWS Bojong Kulur*',
-      'Laporan Tinggi Muka Air',
-      '',
-      `Lokasi   : ${event.location_name}`,
-      `Waktu    : ${waktu}`,
-      '',
-      'Laporan:',
-      `Ketinggian : ${levelM} m (${event.water_level_cm.toFixed(1)} cm)`,
-      `Status     : ${statusLabel}`,
-      '',
-      `Dashboard  : ${dashboardUrl}`,
-    ];
-    text = lines.join('\n');
-  }
-
-  return prefix ? `${prefix}\n${text}` : text;
+function dashboardUrl(): string {
+  return ENV.DASHBOARD_URL || `${ENV.ALLOWED_ORIGIN}/public`;
 }
 
-async function getSignedImageUrl(storagePath: string): Promise<string | null> {
-  const { data, error } = await supabaseStorage.storage
-    .from(bucket)
-    .createSignedUrl(storagePath, 3600);
-  if (error) {
-    console.error('[notification-gateway] signed URL error:', error.message);
-    return null;
-  }
-  return data.signedUrl;
+async function getSignedImageUrl(storagePath: string, deviceId: string): Promise<string | null> {
+  return createCctvSignedUrlFlexible(supabaseStorage, bucket, storagePath, deviceId);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Core: kirim notifikasi ke WhatsApp Channel
-// ─────────────────────────────────────────────────────────────────────────────
-async function sendToChannel(message: string, imageUrl: string | null): Promise<{ ok: boolean; error?: string }> {
+async function sendToChannel(
+  message: string,
+  imageUrl: string | null
+): Promise<{ ok: boolean; error?: string; imageAttached: boolean; imageFallbackUsed?: boolean }> {
   if (!isWhatsAppReady()) {
-    return { ok: false, error: 'WhatsApp client not ready' };
+    return { ok: false, error: 'WhatsApp client not ready', imageAttached: false };
   }
 
   const channelTarget = await resolveChannelTarget(ENV.WHATSAPP_CHANNEL_ID);
   if (!channelTarget) {
-    return { ok: false, error: 'Tidak ada WhatsApp Channel target yang ditemukan' };
+    return { ok: false, error: 'Tidak ada WhatsApp Channel target yang ditemukan', imageAttached: false };
   }
 
   const wa = await getWhatsAppClient();
-  try {
-    if (imageUrl) {
+
+  if (imageUrl) {
+    try {
       const media = await MessageMedia.fromUrl(imageUrl, { unsafeMime: true });
       await wa.sendMessage(channelTarget, media, { caption: message });
       console.log(`[notification-gateway] Terkirim (gambar+caption) ke channel ${channelTarget}`);
-    } else {
-      await wa.sendMessage(channelTarget, message);
-      console.log(`[notification-gateway] Terkirim (teks) ke channel ${channelTarget}`);
+      return { ok: true, imageAttached: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[notification-gateway] MessageMedia.fromUrl gagal, fallback teks:', msg);
+      try {
+        await wa.sendMessage(channelTarget, message);
+        console.log(`[notification-gateway] Terkirim (teks saja, fallback) ke channel ${channelTarget}`);
+        return { ok: true, imageAttached: false, imageFallbackUsed: true };
+      } catch (sendErr) {
+        const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
+        console.error('[notification-gateway] Kirim teks fallback gagal:', sendMsg);
+        return { ok: false, error: sendMsg, imageAttached: false, imageFallbackUsed: true };
+      }
     }
-    return { ok: true };
+  }
+
+  try {
+    await wa.sendMessage(channelTarget, message);
+    console.log(`[notification-gateway] Terkirim (teks) ke channel ${channelTarget}`);
+    return { ok: true, imageAttached: false };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[notification-gateway] Kirim gagal:', msg);
-    return { ok: false, error: msg };
+    return { ok: false, error: msg, imageAttached: false };
   }
 }
 
 async function processNotification(event: NotificationEvent) {
-  const template = await getTemplate(event.deployment_slug);
-  const message = formatMessage(event, template);
-  const imageUrl = event.cctv_image_path
-    ? await getSignedImageUrl(event.cctv_image_path)
-    : null;
+  const row = await getDeploymentWaRow(event.deployment_slug);
+  const message = formatWaMessage(event, row, dashboardUrl());
+  const imageUrl = event.cctv_image_path ? await getSignedImageUrl(event.cctv_image_path, event.device_id) : null;
 
   const result = await sendToChannel(message, imageUrl);
 
@@ -176,9 +142,8 @@ notifEmitter.on('notify', (event: NotificationEvent) => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HTTP server internal — untuk test manual dari admin UI
-// ─────────────────────────────────────────────────────────────────────────────
+const VALID_STATUS = new Set(['normal', 'waspada', 'siaga', 'bahaya']);
+
 interface SendTestBody {
   device_id: string;
   deployment_slug?: string;
@@ -186,56 +151,84 @@ interface SendTestBody {
   water_status: string;
   location_name?: string;
   cctv_signed_url?: string | null;
-  template?: string | null;
+  /** Jika diisi, lewati format template dan kirim teks ini (untuk uji manual). */
+  message_text?: string | null;
 }
 
 const gatewayApp = Fastify({ logger: false });
 
 gatewayApp.post<{ Body: SendTestBody }>('/send-test', async (req, reply) => {
-  const {
-    device_id,
-    deployment_slug,
-    water_level_cm,
-    water_status,
-    location_name,
-    cctv_signed_url,
-    template,
-  } = req.body;
+  const { device_id, deployment_slug, water_level_cm, water_status, location_name, cctv_signed_url, message_text } =
+    req.body;
 
   const slug = deployment_slug ?? ENV.DEFAULT_DEPLOYMENT_SLUG;
 
-  // Paksa refresh cache agar template terbaru dari DB dipakai
+  if (!VALID_STATUS.has(water_status)) {
+    return reply.code(400).send({ error: 'water_status tidak valid' });
+  }
+
   invalidateTemplateCache(slug);
-  const resolvedTemplate = template !== undefined ? template : await getTemplate(slug);
 
-  const fakeEvent: NotificationEvent = {
-    reading_id: `test-${Date.now()}`,
-    deployment_slug: slug,
-    device_id,
-    location_name: location_name ?? device_id,
-    water_level_cm,
-    water_status: water_status as NotificationEvent['water_status'],
-    cctv_image_path: null,
-    recorded_at: new Date().toISOString(),
-  };
+  const { data: cfg } = await supabase
+    .from('device_configs')
+    .select(
+      'location_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm'
+    )
+    .eq('deployment_slug', slug)
+    .eq('device_id', device_id)
+    .maybeSingle();
 
-  const message = formatMessage(fakeEvent, resolvedTemplate, '[TEST]');
+  const depRow = await getDeploymentWaRow(slug);
+
+  const loc = location_name ?? cfg?.location_name ?? device_id;
+  const readInterval = cfg?.read_interval_sec ?? 3600;
+  const tw = cfg?.threshold_waspada_cm ?? 0;
+  const ts = cfg?.threshold_siaga_cm ?? tw;
+  const tb = cfg?.threshold_bahaya_cm ?? ts;
+
+  const event = buildSyntheticNotificationEvent(
+    {
+      deployment_slug: slug,
+      device_id,
+      location_name: loc,
+      water_level_cm,
+      water_status: water_status as NotificationEvent['water_status'],
+      deployment_display_name: depRow?.display_name ?? slug,
+      read_interval_sec: readInterval,
+      threshold_waspada_cm: tw,
+      threshold_siaga_cm: ts,
+      threshold_bahaya_cm: tb,
+      contact_petugas: depRow?.contact_petugas ?? null,
+      contact_bpbd: depRow?.contact_bpbd ?? null,
+      contact_posko: depRow?.contact_posko ?? null,
+    },
+    { readingIdPrefix: 'test' }
+  );
+
+  const url = dashboardUrl();
+  const formatted = formatWaMessage(event, depRow, url);
+  const message =
+    message_text != null && String(message_text).trim().length > 0
+      ? `[TEST]\n${String(message_text).trim()}`
+      : `[TEST]\n${formatted}`;
 
   const result = await sendToChannel(message, cctv_signed_url ?? null);
 
   if (!result.ok) {
-    return reply.code(500).send({ error: result.error ?? 'Gagal mengirim' });
+    return reply.code(500).send({
+      error: result.error ?? 'Gagal mengirim',
+      imageAttached: result.imageAttached,
+      imageFallbackUsed: result.imageFallbackUsed,
+    });
   }
 
-  return reply.send({ ok: true });
+  return reply.send({
+    ok: true,
+    imageAttached: result.imageAttached,
+    imageFallbackUsed: result.imageFallbackUsed ?? false,
+  });
 });
 
-/**
- * POST /invalidate-template
- * Body: { deployment_slug: string }
- * Dipanggil oleh api/src/index.ts setelah PATCH /api/deployment/template,
- * agar gateway langsung pakai template terbaru tanpa menunggu TTL cache.
- */
 gatewayApp.post<{ Body: { deployment_slug: string } }>('/invalidate-template', async (req, reply) => {
   const { deployment_slug } = req.body;
   if (deployment_slug) {
@@ -249,7 +242,6 @@ const gatewayPort = ENV.GATEWAY_HTTP_PORT;
 await gatewayApp.listen({ port: gatewayPort, host: '127.0.0.1' });
 console.log(`[notification-gateway] HTTP internal listening on port ${gatewayPort}`);
 
-// Init WhatsApp — tampilkan QR di terminal jika belum scan
 getWhatsAppClient().catch((err) => {
   console.error('[notification-gateway] WhatsApp init error:', err.message);
 });
