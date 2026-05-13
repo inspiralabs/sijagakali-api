@@ -6,31 +6,14 @@ Layanan Node memakai **whatsapp-web.js** → di bawahnya **Puppeteer** menjalank
 
 Itu artinya **dependency sistem** untuk Chrome/Chromium belum lengkap, bukan bug TypeScript.
 
-### Opsi A — Pasang dependency untuk Chromium bawaan Puppeteer (Debian / Ubuntu)
+### Pasang dependency untuk Chromium bawaan Puppeteer (Debian / Ubuntu)
 
 Jalankan sebagai root (sesuaikan nama paket jika distro Anda beda; Ubuntu 22.04+ sering pakai sufiks `t64` di beberapa paket):
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y \
-  ca-certificates fonts-liberation \
-  libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 \
-  libc6 libcairo2 libcups2t64 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 \
-  libglib2.0-0t64 libgtk-3-0t64 libnspr4 libnss3 \
-  libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 \
-  libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
-  libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 \
-  wget xdg-utils
+sudo apt-get install -y libatk1.0-0 libatk-bridge2.0-0 libgbm1 libgtk-3-0 libnss3 libxss1 libasound2
 ```
-
-Jika `apt` mengeluh paket `*t64` tidak ada (mis. Ubuntu 20.04), ganti misalnya:
-
-- `libasound2t64` → `libasound2`
-- `libatk1.0-0t64` → `libatk1.0-0`
-- `libatk-bridge2.0-0t64` → `libatk-bridge2.0-0`
-- `libcups2t64` → `libcups2`
-- `libglib2.0-0t64` → `libglib2.0-0`
-- `libgtk-3-0t64` → `libgtk-3-0`
 
 Atau pasang meta-paket browser (sering menarik semua dependency):
 
@@ -51,14 +34,6 @@ Variabel yang didukung kode:
 
 - **`PUPPETEER_EXECUTABLE_PATH`** (disarankan)
 - **`CHROME_PATH`** (alias)
-
-### Opsi B — Docker
-
-Gunakan image Node berbasis Debian/Ubuntu yang sudah memasang Chromium + dependency, atau tambahkan `RUN apt-get install …` seperti di atas di Dockerfile. Mount volume untuk `.wwebjs_auth` agar sesi WA tidak hilang.
-
-### Opsi C — Headless di VPS kecil
-
-Tambahkan RAM swap jika perlu; Chromium butuh memori. Argumen `--disable-dev-shm-usage` sudah disetel di kode untuk mengurangi masalah `/dev/shm` kecil di container.
 
 ---
 
