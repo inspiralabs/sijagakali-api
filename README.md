@@ -10,7 +10,7 @@ Layanan backend: **MQTT collector**, **data processing**, **notification gateway
 
 - **Node.js** LTS (mis. 20.x atau 22.x) dan **npm**
 - File **`.env`** di root `sijagaair-api/` (atau per layanan, sesuai cara Anda mengatur variabel — lihat `shared` / `supabase/README.md` untuk daftar variabel)
-- **notification-gateway** memakai **whatsapp-web.js** (Puppeteer): di Linux biasanya perlu dependensi Chromium sistem; pastikan RAM cukup (~512MB+ per proses)
+- **notification-gateway** memakai **whatsapp-web.js** (Puppeteer): di Linux biasanya perlu dependensi Chromium sistem; pastikan RAM cukup (~512MB+ per proses). **Troubleshooting:** [`notification-gateway/README.md`](./notification-gateway/README.md).
 
 ### 2. Instal & build & jalan
 
