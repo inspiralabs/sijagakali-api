@@ -128,6 +128,7 @@ WHERE slug = 'sijagaair-bojong-kulur';
 INSERT INTO sijagaair.device_configs (
   deployment_slug,
   device_id,
+  display_name,
   location_name,
   sensor_height_cm,
   cctv_local_ip,
@@ -143,6 +144,7 @@ INSERT INTO sijagaair.device_configs (
     'sijagaair-bojong-kulur',
     'node-001',
     'Titik pantau 1',
+    'Segmen hulu Sungai Cileungsi — dekat pos pemantauan Jembatan PT Wika',
     250,
     '192.168.1.101',
     NULL,
@@ -157,6 +159,7 @@ INSERT INTO sijagaair.device_configs (
     'sijagaair-bojong-kulur',
     'node-002',
     'Titik pantau 2',
+    'Tengah aliran — bendung pengatur debit',
     250,
     NULL,
     NULL,
@@ -171,6 +174,7 @@ INSERT INTO sijagaair.device_configs (
     'sijagaair-bojong-kulur',
     'node-003',
     'Titik pantau 3',
+    'Hilir — dekat pemukiman padat',
     250,
     NULL,
     NULL,
@@ -182,6 +186,7 @@ INSERT INTO sijagaair.device_configs (
     now()
   )
 ON CONFLICT (deployment_slug, device_id) DO UPDATE SET
+  display_name     = excluded.display_name,
   location_name    = excluded.location_name,
   sensor_height_cm = excluded.sensor_height_cm,
   cctv_local_ip    = excluded.cctv_local_ip,
