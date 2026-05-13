@@ -14,11 +14,22 @@ let _ready = false;
 export async function getWhatsAppClient(): Promise<WaClient> {
   if (_client && _ready) return _client;
 
+  const chromePath =
+    process.env.PUPPETEER_EXECUTABLE_PATH?.trim() ||
+    process.env.CHROME_PATH?.trim() ||
+    undefined;
+
   _client = new Client({
     authStrategy: new LocalAuth({ clientId: 'sijagaair-gateway' }),
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      ...(chromePath ? { executablePath: chromePath } : {}),
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
     },
   });
 
