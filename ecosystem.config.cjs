@@ -38,8 +38,11 @@ module.exports = {
     },
     {
       name: "sijagaair-tunnel",
+      cwd: __dirname,
       script: "cloudflared",
-      args: "tunnel --url http://localhost:3001",
+      args: ["tunnel", "--url", "http://localhost:3001"],
+      interpreter: "none",
+      exec_mode: "fork",
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
