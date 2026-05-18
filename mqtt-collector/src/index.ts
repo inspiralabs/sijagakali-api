@@ -12,6 +12,10 @@ const supabase = getSupabase();
 const supabaseStorage = getSupabaseStorage();
 const bucket = ENV.SUPABASE_STORAGE_BUCKET_CCTV_IMAGES;
 const defaultDeployment = ENV.DEFAULT_DEPLOYMENT_SLUG;
+const lastSeenThrottleMs = ENV.LAST_SEEN_THROTTLE_MS;
+
+/** device key → timestamp ms terakhir UPDATE last_seen_at ke DB */
+const lastSeenUpdatedAt = new Map<string, number>();
 
 /**
  * Peta sementara correlation_id → deployment_slug dari pesan cctv/meta opsional.
@@ -150,6 +154,11 @@ async function handleSensorStatus(topic: string, payload: Buffer) {
     const status = JSON.parse(payload.toString('utf8')) as { deployment_slug?: string; timestamp?: string };
     const deploymentSlug = status.deployment_slug ?? defaultDeployment;
 
+    const throttleKey = `${deploymentSlug}:${deviceId}`;
+    const now = Date.now();
+    const lastUpdate = lastSeenUpdatedAt.get(throttleKey) ?? 0;
+    if (now - lastUpdate < lastSeenThrottleMs) return;
+
     const { error } = await supabase
       .from('device_configs')
       .update({ last_seen_at: status.timestamp ?? new Date().toISOString() })
@@ -158,6 +167,8 @@ async function handleSensorStatus(topic: string, payload: Buffer) {
 
     if (error) {
       console.error('[collector] UPDATE last_seen_at failed:', error.message);
+    } else {
+      lastSeenUpdatedAt.set(throttleKey, now);
     }
   } catch {
     console.warn('[collector] sensor/status parse error for device', deviceId);

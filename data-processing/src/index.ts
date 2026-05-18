@@ -12,6 +12,9 @@ import { shouldNotify } from './notificationPolicy.js';
 const supabase = getSupabase();
 const defaultDeployment = ENV.DEFAULT_DEPLOYMENT_SLUG;
 
+const POLL_INTERVAL_MS = ENV.INGESTION_POLL_INTERVAL_MS;
+const DISPATCH_DEBOUNCE_MS = ENV.DISPATCH_DEBOUNCE_MS;
+
 type MqttIngestionRow = {
   id: string;
   deployment_slug: string;
@@ -43,6 +46,28 @@ type DeviceConfigRow = {
 const configCache = new Map<string, DeviceConfigRow>();
 setInterval(() => configCache.clear(), 5 * 60_000);
 
+type DeploymentNotifyRow = {
+  display_name: string;
+  contact_petugas: string | null;
+  contact_bpbd: string | null;
+  contact_posko: string | null;
+};
+
+const deploymentCache = new Map<string, DeploymentNotifyRow>();
+setInterval(() => deploymentCache.clear(), 5 * 60_000);
+
+const metrics = {
+  poll_skipped_realtime: 0,
+  poll_ran: 0,
+  dispatch_scheduled: 0,
+  dispatch_ok: 0,
+};
+
+let realtimeHealthy = false;
+
+const dispatchTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const dispatchInFlight = new Set<string>();
+
 async function getDeviceConfig(
   deploymentSlug: string,
   deviceId: string
@@ -68,14 +93,9 @@ async function getDeviceConfig(
   return data as DeviceConfigRow;
 }
 
-type DeploymentNotifyRow = {
-  display_name: string;
-  contact_petugas: string | null;
-  contact_bpbd: string | null;
-  contact_posko: string | null;
-};
-
 async function getDeploymentNotifyRow(deploymentSlug: string): Promise<DeploymentNotifyRow | null> {
+  if (deploymentCache.has(deploymentSlug)) return deploymentCache.get(deploymentSlug)!;
+
   const { data, error } = await supabase
     .from('deployments')
     .select('display_name,contact_petugas,contact_bpbd,contact_posko')
@@ -86,40 +106,56 @@ async function getDeploymentNotifyRow(deploymentSlug: string): Promise<Deploymen
     if (error) console.error('[processing] getDeploymentNotifyRow error:', error.message);
     return null;
   }
-  return data as DeploymentNotifyRow;
+
+  const row = data as DeploymentNotifyRow;
+  deploymentCache.set(deploymentSlug, row);
+  return row;
 }
 
-async function tryDispatch(correlationId: string, deploymentSlug: string) {
-  const { data: rows, error } = await supabase
+/** @returns true jika sensor_readings berhasil di-insert */
+async function tryDispatch(
+  correlationId: string,
+  deploymentSlug: string,
+  deviceId?: string
+): Promise<boolean> {
+  let query = supabase
     .from('mqtt_ingestion')
-    .select('id,deployment_slug,device_id,correlation_id,message_type,payload_json,cctv_storage_path,ingest_status')
+    .select(
+      'id,deployment_slug,device_id,correlation_id,message_type,payload_json,cctv_storage_path,ingest_status'
+    )
     .eq('correlation_id', correlationId)
     .eq('deployment_slug', deploymentSlug)
     .in('ingest_status', ['parsed_ok', 'storage_uploaded']);
 
+  if (deviceId) {
+    query = query.eq('device_id', deviceId);
+  }
+
+  const { data: rows, error } = await query;
+
   if (error) {
     console.error('[processing] query ingestion error:', error.message);
-    return;
+    return false;
   }
 
   const list = (rows ?? []) as MqttIngestionRow[];
   const sensorRow = list.find((r) => r.message_type === 'sensor_data');
   const cctvRow = list.find((r) => r.message_type === 'cctv_image');
 
-  if (!sensorRow) return; // belum lengkap atau tidak ada sensor
+  if (!sensorRow) return false;
 
   const payload = sensorRow.payload_json;
-  if (!payload) return;
+  if (!payload) return false;
 
   const waterLevelCm = Number(payload['water_level_cm'] ?? 0);
   const recordedAt = String(payload['timestamp'] ?? new Date().toISOString());
-  const deviceId = sensorRow.device_id;
+  const resolvedDeviceId = sensorRow.device_id;
   const slug = sensorRow.deployment_slug;
 
-  const config = await getDeviceConfig(slug, deviceId);
+  const config = await getDeviceConfig(slug, resolvedDeviceId);
   if (!config) {
-    console.error('[processing] No device config found for', slug, deviceId);
-    return;
+    console.error('[processing] No device config found for', slug, resolvedDeviceId);
+    return false;
   }
 
   const waterStatus = calcWaterStatus(waterLevelCm, config);
@@ -128,7 +164,7 @@ async function tryDispatch(correlationId: string, deploymentSlug: string) {
     .from('sensor_readings')
     .insert({
       deployment_slug: slug,
-      device_id: deviceId,
+      device_id: resolvedDeviceId,
       recorded_at: recordedAt,
       water_level_cm: waterLevelCm,
       water_status: waterStatus,
@@ -144,10 +180,9 @@ async function tryDispatch(correlationId: string, deploymentSlug: string) {
 
   if (insertErr) {
     console.error('[processing] INSERT sensor_readings failed:', insertErr.message);
-    return;
+    return false;
   }
 
-  // Mark ingestion baris sebagai dispatched
   const ingestionIds = list.map((r) => r.id);
   await supabase
     .from('mqtt_ingestion')
@@ -155,20 +190,19 @@ async function tryDispatch(correlationId: string, deploymentSlug: string) {
     .in('id', ingestionIds);
 
   console.log(
-    `[processing] sensor_readings INSERT OK — device=${deviceId} level=${waterLevelCm}cm status=${waterStatus}`
+    `[processing] sensor_readings INSERT OK — device=${resolvedDeviceId} level=${waterLevelCm}cm status=${waterStatus}`
   );
 
-  // Evaluasi apakah perlu kirim notifikasi
-  if (!reading?.id) return;
+  if (!reading?.id) return true;
 
-  const notify = shouldNotify(slug, deviceId, waterLevelCm, waterStatus, config);
+  const notify = shouldNotify(slug, resolvedDeviceId, waterLevelCm, waterStatus, config);
   if (notify) {
     const dep = await getDeploymentNotifyRow(slug);
     const selisih_cm = computeSelisihCmAboveWaspada(waterLevelCm, config.threshold_waspada_cm);
     const event: NotificationEvent = {
       reading_id: reading.id as string,
       deployment_slug: slug,
-      device_id: deviceId,
+      device_id: resolvedDeviceId,
       location_name: config.location_name,
       water_level_cm: waterLevelCm,
       water_status: waterStatus,
@@ -185,15 +219,56 @@ async function tryDispatch(correlationId: string, deploymentSlug: string) {
       contact_posko: dep?.contact_posko ?? null,
     };
     notifEmitter.emit('notify', event);
-    console.log(`[processing] notif event emitted for device=${deviceId} status=${waterStatus}`);
+    console.log(
+      `[processing] notif event emitted for device=${resolvedDeviceId} status=${waterStatus}`
+    );
+  }
+
+  return true;
+}
+
+function scheduleDispatch(
+  correlationId: string,
+  deploymentSlug: string,
+  deviceId?: string
+) {
+  const key = `${deploymentSlug}:${correlationId}`;
+  metrics.dispatch_scheduled++;
+
+  const existing = dispatchTimers.get(key);
+  if (existing) clearTimeout(existing);
+
+  dispatchTimers.set(
+    key,
+    setTimeout(() => {
+      dispatchTimers.delete(key);
+      void runDispatch(correlationId, deploymentSlug, deviceId);
+    }, DISPATCH_DEBOUNCE_MS)
+  );
+}
+
+async function runDispatch(
+  correlationId: string,
+  deploymentSlug: string,
+  deviceId?: string
+) {
+  const key = `${deploymentSlug}:${correlationId}`;
+  if (dispatchInFlight.has(key)) return;
+
+  dispatchInFlight.add(key);
+  try {
+    const ok = await tryDispatch(correlationId, deploymentSlug, deviceId);
+    if (ok) metrics.dispatch_ok++;
+  } finally {
+    dispatchInFlight.delete(key);
   }
 }
 
-/** Polling fallback: cek staging setiap 10 detik untuk correlation_id yang belum di-dispatch */
+/** Polling fallback: cek staging untuk correlation_id yang belum di-dispatch */
 async function pollPending() {
   const { data, error } = await supabase
     .from('mqtt_ingestion')
-    .select('correlation_id,deployment_slug')
+    .select('correlation_id,deployment_slug,device_id')
     .in('ingest_status', ['parsed_ok', 'storage_uploaded'])
     .order('received_at', { ascending: true })
     .limit(100);
@@ -205,34 +280,58 @@ async function pollPending() {
     const key = `${row.deployment_slug}:${row.correlation_id}`;
     if (!seen.has(key)) {
       seen.add(key);
-      await tryDispatch(row.correlation_id as string, row.deployment_slug as string);
+      scheduleDispatch(
+        row.correlation_id as string,
+        row.deployment_slug as string,
+        row.device_id as string | undefined
+      );
     }
   }
 }
 
-setInterval(pollPending, 10_000);
+async function pollIfNeeded() {
+  if (realtimeHealthy) {
+    metrics.poll_skipped_realtime++;
+    return;
+  }
+  metrics.poll_ran++;
+  await pollPending();
+}
 
-// Supabase Realtime — trigger saat baris mqtt_ingestion baru masuk
 function startRealtime() {
   supabase
     .channel('ingestion-trigger')
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'sijagaair', table: 'mqtt_ingestion' },
-      async (payload) => {
+      (payload) => {
         const row = payload.new as Partial<MqttIngestionRow>;
         if (!row.correlation_id || !row.deployment_slug) return;
-        await tryDispatch(row.correlation_id, row.deployment_slug);
+        scheduleDispatch(row.correlation_id, row.deployment_slug, row.device_id);
       }
     )
     .subscribe((status) => {
+      const wasHealthy = realtimeHealthy;
+      realtimeHealthy = status === 'SUBSCRIBED';
       console.log('[processing] Realtime status:', status);
+      if (realtimeHealthy && !wasHealthy) {
+        pollPending().catch(console.error);
+      }
     });
 }
 
+setInterval(() => {
+  console.log('[processing] metrics', JSON.stringify(metrics));
+}, 5 * 60_000);
+
+setInterval(() => {
+  void pollIfNeeded();
+}, POLL_INTERVAL_MS);
+
 startRealtime();
 
-// Jalankan polling sekali saat startup untuk menangkap backlog
 pollPending().catch(console.error);
 
-console.log('[processing] data-processing service started');
+console.log(
+  `[processing] data-processing started (poll=${POLL_INTERVAL_MS}ms debounce=${DISPATCH_DEBOUNCE_MS}ms deployment=${defaultDeployment})`
+);

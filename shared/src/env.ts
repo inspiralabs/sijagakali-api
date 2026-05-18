@@ -10,6 +10,13 @@ function optional_env(key: string, fallback = ''): string {
   return process.env[key] ?? fallback;
 }
 
+function optional_env_number(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 export const ENV = {
   SUPABASE_URL: require_env('SUPABASE_URL'),
   SUPABASE_SERVICE_ROLE_KEY: require_env('SUPABASE_SERVICE_ROLE_KEY'),
@@ -32,4 +39,10 @@ export const ENV = {
   DASHBOARD_URL: optional_env('DASHBOARD_URL', ''),
   /** Port HTTP internal untuk notification-gateway (default 3101). */
   GATEWAY_HTTP_PORT: Number(optional_env('GATEWAY_HTTP_PORT', '3101')),
+  /** Interval polling fallback mqtt_ingestion di data-processing (ms). */
+  INGESTION_POLL_INTERVAL_MS: optional_env_number('INGESTION_POLL_INTERVAL_MS', 60_000),
+  /** Debounce tryDispatch per correlation_id (ms). */
+  DISPATCH_DEBOUNCE_MS: optional_env_number('DISPATCH_DEBOUNCE_MS', 3_000),
+  /** Min jarak UPDATE last_seen_at per device di mqtt-collector (ms). */
+  LAST_SEEN_THROTTLE_MS: optional_env_number('LAST_SEEN_THROTTLE_MS', 5 * 60_000),
 };
