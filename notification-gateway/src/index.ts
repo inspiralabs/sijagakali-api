@@ -7,8 +7,10 @@ import {
   ENV,
   notifEmitter,
   type NotificationEvent,
+  type WeatherNotificationEvent,
   type DeploymentWaRow,
   formatWaMessage,
+  formatWeatherWaMessage,
   buildSyntheticNotificationEvent,
   createCctvSignedUrlFlexible,
 } from '@sijagaair/shared';
@@ -24,7 +26,7 @@ const bucket = ENV.SUPABASE_STORAGE_BUCKET_CCTV_IMAGES;
 const TEMPLATE_TTL_MS = 5 * 60 * 1000;
 
 const DEPLOYMENT_WA_SELECT =
-  'display_name,whatsapp_message_template,wa_template_normal,wa_template_waspada,wa_template_siaga,wa_template_bahaya,contact_petugas,contact_bpbd,contact_posko';
+  'display_name,whatsapp_message_template,wa_template_normal,wa_template_waspada,wa_template_siaga,wa_template_bahaya,wa_template_weather_nowcast,wa_template_weather_heavy_rain,contact_petugas,contact_bpbd,contact_posko';
 
 interface CacheEntry {
   value: Partial<DeploymentWaRow> | null;
@@ -139,6 +141,32 @@ async function processNotification(event: NotificationEvent) {
 notifEmitter.on('notify', (event: NotificationEvent) => {
   processNotification(event).catch((err) => {
     console.error('[notification-gateway] processNotification unhandled:', err);
+  });
+});
+
+async function processWeatherNotification(event: WeatherNotificationEvent) {
+  const row = await getDeploymentWaRow(event.deployment_slug);
+  const message = formatWeatherWaMessage(event, row, dashboardUrl());
+  const result = await sendToChannel(message, null);
+
+  const { error: logErr } = await supabase.from('notification_logs').insert({
+    reading_id: null,
+    deployment_slug: event.deployment_slug,
+    device_id: event.device_id,
+    water_status: null,
+    channel: 'weather',
+    status: result.ok ? 'sent' : 'failed',
+    error_message: result.error ?? null,
+  });
+
+  if (logErr) {
+    console.error('[notification-gateway] INSERT weather notification_logs gagal:', logErr.message);
+  }
+}
+
+notifEmitter.on('weather-notify', (event: WeatherNotificationEvent) => {
+  processWeatherNotification(event).catch((err) => {
+    console.error('[notification-gateway] processWeatherNotification unhandled:', err);
   });
 });
 
