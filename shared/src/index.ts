@@ -9,13 +9,7 @@ export { notifEmitter } from './notifEmitter.js';
 export * from './bmkg/types.js';
 export {
   BMKG_ADM4_RE,
-  EXTREME_WEATHER_CODES,
   getForecast,
-  getNowcastAlerts,
-  filterNowcastByKeywords,
-  collectNowcastKeywords,
-  findUpcomingExtreme,
   formatForecastTime,
   clearBmkgCache,
 } from './bmkg/bmkgService.js';
-export { formatWeatherWaMessage } from './waMessageFormat.js';

@@ -84,19 +84,3 @@ export function calcWaterStatus(level: number, t: DeviceThresholds): WaterStatus
   return 'normal';
 }
 
-/** Event cuaca BMKG yang dikirim weather poller ke notification-gateway */
-export interface WeatherNotificationEvent {
-  deployment_slug: string;
-  device_id: string;
-  location_name: string;
-  deployment_display_name: string;
-  alert_type: 'nowcast' | 'heavy_rain';
-  weather_desc: string;
-  temperature_c: number | null;
-  alert_title: string;
-  alert_description: string;
-  recorded_at: string;
-  contact_petugas: string | null;
-  contact_bpbd: string | null;
-  contact_posko: string | null;
-}

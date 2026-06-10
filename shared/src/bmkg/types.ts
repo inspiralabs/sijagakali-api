@@ -40,9 +40,3 @@ export interface BmkgNormalizedForecast {
   fetchedAt: string;
 }
 
-export interface BmkgNowcastAlert {
-  title: string;
-  description: string;
-}
-
-export type WeatherAlertType = 'nowcast' | 'heavy_rain';

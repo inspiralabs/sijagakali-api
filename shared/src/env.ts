@@ -45,8 +45,4 @@ export const ENV = {
   DISPATCH_DEBOUNCE_MS: optional_env_number('DISPATCH_DEBOUNCE_MS', 3_000),
   /** Min jarak UPDATE last_seen_at per device di mqtt-collector (ms). */
   LAST_SEEN_THROTTLE_MS: optional_env_number('LAST_SEEN_THROTTLE_MS', 5 * 60_000),
-  /** Interval polling cuaca BMKG di data-processing (ms). */
-  WEATHER_POLL_INTERVAL_MS: optional_env_number('WEATHER_POLL_INTERVAL_MS', 10 * 60_000),
-  /** Cooldown notifikasi cuaca per device per jenis alert (ms). */
-  WEATHER_NOTIFY_COOLDOWN_MS: optional_env_number('WEATHER_NOTIFY_COOLDOWN_MS', 2 * 60 * 60_000),
 };
