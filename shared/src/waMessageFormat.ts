@@ -1,4 +1,4 @@
-import type { NotificationEvent, WaterStatus } from './types.js';
+import type { NotificationEvent, WaterStatus, WeatherNotificationEvent } from './types.js';
 import { BUILTIN_WA_TEMPLATE_BY_STATUS } from './waBuiltinTemplates.js';
 
 /** Baris template dari `deployments` (boleh partial dari query). */
@@ -9,6 +9,8 @@ export interface DeploymentWaRow {
   wa_template_waspada: string | null;
   wa_template_siaga: string | null;
   wa_template_bahaya: string | null;
+  wa_template_weather_nowcast: string | null;
+  wa_template_weather_heavy_rain: string | null;
   contact_petugas: string | null;
   contact_bpbd: string | null;
   contact_posko: string | null;
@@ -157,4 +159,86 @@ export function buildSyntheticNotificationEvent(
     cctv_image_path: null,
     selisih_cm: computeSelisihCmAboveWaspada(input.water_level_cm, input.threshold_waspada_cm),
   };
+}
+
+const BUILTIN_WEATHER_NOWCAST = `━━━━━━━━━━━━━━━━━━━━
+⛈️ *SiJagaAir | Peringatan Dini Cuaca BMKG*
+📍 Pos Pantau: *{nama_pos}*
+🏘️ Wilayah: *{wilayah}*
+━━━━━━━━━━━━━━━━━━━━
+
+⚠️ *{peringatan_bmkg}*
+
+🌡️ Prakiraan: {cuaca} ({suhu}°C)
+🕐 Waktu (WIB): {waktu}
+
+📞 Petugas: {kontak_petugas}
+📞 BPBD: {no_bpbd}
+
+📊 *Pantau live:* {dashboard_url}
+━━━━━━━━━━━━━━━━━━━━
+_Sumber data cuaca: BMKG_`;
+
+const BUILTIN_WEATHER_HEAVY_RAIN = `━━━━━━━━━━━━━━━━━━━━
+🌧️ *SiJagaAir | Prakiraan Hujan Lebat*
+📍 Pos Pantau: *{nama_pos}*
+🏘️ Wilayah: *{wilayah}*
+━━━━━━━━━━━━━━━━━━━━
+
+Cuaca diprakirakan: *{cuaca}* ({suhu}°C)
+Perkiraan dalam 3 jam ke depan.
+
+🕐 Waktu (WIB): {waktu}
+
+Waspada potensi peningkatan debit air di titik pantau.
+
+📞 Petugas: {kontak_petugas}
+📞 BPBD: {no_bpbd}
+
+📊 *Pantau live:* {dashboard_url}
+━━━━━━━━━━━━━━━━━━━━
+_Sumber data cuaca: BMKG_`;
+
+export function applyWeatherWaPlaceholders(
+  template: string,
+  event: WeatherNotificationEvent,
+  dashboardUrl: string
+): string {
+  const waktu = formatWaktuWib(event.recorded_at);
+  const suhu = event.temperature_c != null ? String(Math.round(event.temperature_c)) : '—';
+  const peringatan = event.alert_title || event.alert_description || event.weather_desc;
+
+  let text = template;
+  const rep = (k: string, v: string) => {
+    text = text.split(k).join(v);
+  };
+  rep('{nama_pos}', event.location_name);
+  rep('{lokasi}', event.location_name);
+  rep('{wilayah}', event.deployment_display_name);
+  rep('{deployment_slug}', event.deployment_slug);
+  rep('{device_id}', event.device_id);
+  rep('{cuaca}', event.weather_desc || '—');
+  rep('{suhu}', suhu);
+  rep('{waktu}', waktu);
+  rep('{peringatan_bmkg}', peringatan);
+  rep('{dashboard_url}', dashboardUrl);
+  rep('{kontak_petugas}', dash(event.contact_petugas));
+  rep('{no_bpbd}', dash(event.contact_bpbd));
+  rep('{no_posko}', dash(event.contact_posko));
+  return text;
+}
+
+export function formatWeatherWaMessage(
+  event: WeatherNotificationEvent,
+  deploymentRow: Partial<DeploymentWaRow> | null | undefined,
+  dashboardUrl: string
+): string {
+  const pick = (s: string | null | undefined) => (s && s.trim().length > 0 ? s : null);
+  let template: string | null = null;
+  if (event.alert_type === 'nowcast') {
+    template = pick(deploymentRow?.wa_template_weather_nowcast) ?? BUILTIN_WEATHER_NOWCAST;
+  } else {
+    template = pick(deploymentRow?.wa_template_weather_heavy_rain) ?? BUILTIN_WEATHER_HEAVY_RAIN;
+  }
+  return applyWeatherWaPlaceholders(template, event, dashboardUrl);
 }
