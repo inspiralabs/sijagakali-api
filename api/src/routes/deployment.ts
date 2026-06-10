@@ -13,6 +13,8 @@ export async function registerDeploymentRoutes(app: FastifyInstance, deps: Route
       wa_template_waspada?: string | null;
       wa_template_siaga?: string | null;
       wa_template_bahaya?: string | null;
+      wa_template_weather_nowcast?: string | null;
+      wa_template_weather_heavy_rain?: string | null;
       contact_petugas?: string | null;
       contact_bpbd?: string | null;
       contact_posko?: string | null;
@@ -29,6 +31,12 @@ export async function registerDeploymentRoutes(app: FastifyInstance, deps: Route
     if ('wa_template_waspada' in b) updates.wa_template_waspada = b.wa_template_waspada ?? null;
     if ('wa_template_siaga' in b) updates.wa_template_siaga = b.wa_template_siaga ?? null;
     if ('wa_template_bahaya' in b) updates.wa_template_bahaya = b.wa_template_bahaya ?? null;
+    if ('wa_template_weather_nowcast' in b) {
+      updates.wa_template_weather_nowcast = b.wa_template_weather_nowcast ?? null;
+    }
+    if ('wa_template_weather_heavy_rain' in b) {
+      updates.wa_template_weather_heavy_rain = b.wa_template_weather_heavy_rain ?? null;
+    }
     if ('contact_petugas' in b) updates.contact_petugas = b.contact_petugas ?? null;
     if ('contact_bpbd' in b) updates.contact_bpbd = b.contact_bpbd ?? null;
     if ('contact_posko' in b) updates.contact_posko = b.contact_posko ?? null;

@@ -8,6 +8,7 @@ import { registerDeviceRoutes } from './routes/device.js';
 import { registerNotificationRoutes } from './routes/notification.js';
 import { registerDeploymentRoutes } from './routes/deployment.js';
 import { registerAdminRoutes } from './routes/admins.js';
+import { registerWeatherRoutes } from './routes/weather.js';
 import type { RouteDeps } from './types/deps.js';
 
 export async function buildApp() {
@@ -32,6 +33,7 @@ export async function buildApp() {
   await registerNotificationRoutes(app, deps);
   await registerDeploymentRoutes(app, deps);
   await registerAdminRoutes(app, deps);
+  await registerWeatherRoutes(app, deps);
 
   return app;
 }
