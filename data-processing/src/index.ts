@@ -8,6 +8,7 @@ import {
   type NotificationEvent,
 } from '@sijagaair/shared';
 import { shouldNotify } from './notificationPolicy.js';
+import { startWeatherPoller } from './weatherPoller.js';
 
 const supabase = getSupabase();
 const defaultDeployment = ENV.DEFAULT_DEPLOYMENT_SLUG;
@@ -335,3 +336,5 @@ pollPending().catch(console.error);
 console.log(
   `[processing] data-processing started (poll=${POLL_INTERVAL_MS}ms debounce=${DISPATCH_DEBOUNCE_MS}ms deployment=${defaultDeployment})`
 );
+
+startWeatherPoller();
