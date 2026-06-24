@@ -4,6 +4,7 @@ import type {
   BmkgForecastHour,
   BmkgNormalizedForecast,
 } from './types.js';
+import { adjustWeatherDescForNight, parseBmkgDatetime } from './weatherDisplay.js';
 
 const BMKG_FORECAST_URL = 'https://api.bmkg.go.id/publik/prakiraan-cuaca';
 
@@ -14,13 +15,6 @@ const CACHE_TTL_MS = 15 * 60_000;
 type CacheEntry<T> = { value: T; expiresAt: number };
 
 const forecastCache = new Map<string, CacheEntry<BmkgNormalizedForecast>>();
-
-function parseBmkgDatetime(dtStr: string | undefined): Date | null {
-  if (!dtStr) return null;
-  const normalized = dtStr.replace(' ', 'T');
-  const d = new Date(`${normalized}+07:00`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
 
 function formatLocalTime(dtStr: string): string {
   const d = parseBmkgDatetime(dtStr);
@@ -61,11 +55,14 @@ type RawHour = {
 };
 
 function mapHour(jam: RawHour): BmkgForecastHour {
+  const localDatetime = jam.local_datetime ?? jam.utc_datetime ?? '';
+  const weatherCode = jam.weather != null ? Number(jam.weather) : null;
+  const rawDesc = jam.weather_desc ?? '';
   return {
-    localDatetime: jam.local_datetime ?? jam.utc_datetime ?? '',
+    localDatetime,
     temperatureC: jam.t != null ? Number(jam.t) : null,
-    weatherCode: jam.weather != null ? Number(jam.weather) : null,
-    weatherDesc: jam.weather_desc ?? '',
+    weatherCode,
+    weatherDesc: adjustWeatherDescForNight(weatherCode, rawDesc, localDatetime),
     humidityPct: jam.hu != null ? Number(jam.hu) : null,
     windSpeedKmh: jam.ws != null ? Number(jam.ws) : null,
     windDir: jam.wd ?? '',

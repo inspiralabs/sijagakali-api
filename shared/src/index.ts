@@ -13,3 +13,4 @@ export {
   formatForecastTime,
   clearBmkgCache,
 } from './bmkg/bmkgService.js';
+export { isNightTimeWib, adjustWeatherDescForNight } from './bmkg/weatherDisplay.js';
