@@ -39,7 +39,7 @@ Variabel yang didukung kode:
 
 ## Menjalankan
 
-Dari folder **`notification-gateway`** (atau lewat workspace root `sijagaair-api`):
+Dari folder **`notification-gateway`** (atau lewat workspace root `sijagakali-api`):
 
 ```bash
 npm install

@@ -1,4 +1,4 @@
-/** Payload MQTT topik `sijagaair/{device_id}/sensor/data` */
+/** Payload MQTT topik `sijagakali/{device_id}/sensor/data` */
 export interface SensorDataPayload {
   deployment_slug?: string;
   device_id: string;
@@ -9,7 +9,7 @@ export interface SensorDataPayload {
   battery_pct?: number;
 }
 
-/** Payload MQTT topik `sijagaair/{device_id}/cctv/meta` (opsional) */
+/** Payload MQTT topik `sijagakali/{device_id}/cctv/meta` (opsional) */
 export interface CctvMetaPayload {
   deployment_slug?: string;
   device_id: string;
@@ -18,7 +18,7 @@ export interface CctvMetaPayload {
   image_bytes_length?: number;
 }
 
-/** Payload MQTT topik `sijagaair/{device_id}/sensor/status` (heartbeat) */
+/** Payload MQTT topik `sijagakali/{device_id}/sensor/status` (heartbeat) */
 export interface SensorStatusPayload {
   deployment_slug?: string;
   device_id: string;
@@ -32,15 +32,15 @@ export interface SensorStatusPayload {
 
 /** Konstanta topik MQTT */
 export const TOPICS = {
-  SENSOR_DATA: 'sijagaair/+/sensor/data',
-  SENSOR_STATUS: 'sijagaair/+/sensor/status',
-  CCTV_IMAGE: 'sijagaair/+/cctv/image',
-  CCTV_META: 'sijagaair/+/cctv/meta',
-  CONFIG_INTERVAL: (deviceId: string) => `sijagaair/${deviceId}/config/interval`,
-  COMMAND: (deviceId: string) => `sijagaair/${deviceId}/command`,
+  SENSOR_DATA: 'sijagakali/+/sensor/data',
+  SENSOR_STATUS: 'sijagakali/+/sensor/status',
+  CCTV_IMAGE: 'sijagakali/+/cctv/image',
+  CCTV_META: 'sijagakali/+/cctv/meta',
+  CONFIG_INTERVAL: (deviceId: string) => `sijagakali/${deviceId}/config/interval`,
+  COMMAND: (deviceId: string) => `sijagakali/${deviceId}/command`,
 } as const;
 
-/** Ekstrak device_id dari topik MQTT (mis. "sijagaair/node-001/sensor/data" → "node-001") */
+/** Ekstrak device_id dari topik MQTT (mis. "sijagakali/node-001/sensor/data" → "node-001") */
 export function extractDeviceId(topic: string): string | null {
   const parts = topic.split('/');
   return parts.length >= 2 ? (parts[1] ?? null) : null;

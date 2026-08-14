@@ -13,3 +13,7 @@ data-processing/src/**/*.d.ts
 # whatsapp-web.js / puppeteer — jangan commit profil browser lokal
 .wwebjs_auth/
 .wwebjs_cache/
+
+.agents/
+.rtk/
+CLAUDE.md

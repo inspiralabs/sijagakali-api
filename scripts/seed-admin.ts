@@ -1,5 +1,5 @@
 /**
- * Seed admin default: admin@sijagaair.com / admin123
+ * Seed admin default: admin@sijagakali.com / admin123
  * Jalankan SEKALI setelah deploy migration:
  *   npm run seed:admin
  *
@@ -17,11 +17,11 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  db: { schema: 'sijagaair' },
+  db: { schema: 'sijagakali' },
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const DEFAULT_EMAIL = 'admin@sijagaair.com';
+const DEFAULT_EMAIL = 'admin@sijagakali.com';
 const DEFAULT_PASSWORD = 'admin123';
 const DEFAULT_DISPLAY_NAME = 'Administrator';
 
@@ -66,7 +66,7 @@ async function main() {
     console.log(`Auth user dibuat: ${userId}`);
   }
 
-  // Insert ke sijagaair.admins
+  // Insert ke sijagakali.admins
   const { error: insertErr } = await supabase.from('admins').insert({
     id: userId,
     email: DEFAULT_EMAIL,

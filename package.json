@@ -1,5 +1,5 @@
 {
-  "name": "sijagaair-api",
+  "name": "sijagakali-api",
   "private": true,
   "workspaces": [
     "shared",
@@ -9,14 +9,14 @@
     "api"
   ],
   "scripts": {
-    "dev": "npm -w @sijagaair/shared run build && concurrently --names \"collector,processing,notification,api\" --prefix-colors \"cyan,yellow,magenta,green\" \"npm run dev:collector\" \"npm run dev:processing\" \"npm run dev:notification\" \"npm run dev:api\"",
+    "dev": "npm -w @sijagakali/shared run build && concurrently --names \"collector,processing,notification,api\" --prefix-colors \"cyan,yellow,magenta,green\" \"npm run dev:collector\" \"npm run dev:processing\" \"npm run dev:notification\" \"npm run dev:api\"",
     "dev:collector": "npm -w mqtt-collector run dev",
     "dev:processing": "npm -w data-processing run dev",
     "dev:notification": "npm -w notification-gateway run dev",
     "dev:api": "npm -w api run dev",
     "seed:admin": "tsx scripts/seed-admin.ts",
-    "build": "npm -w @sijagaair/shared run build && npm -w @sijagaair/mqtt-collector exec -- tsc && npm -w @sijagaair/data-processing exec -- tsc && npm -w @sijagaair/notification-gateway exec -- tsc && npm -w @sijagaair/api exec -- tsc",
-    "build:shared": "npm -w @sijagaair/shared run build",
+    "build": "npm -w @sijagakali/shared run build && npm -w @sijagakali/mqtt-collector exec -- tsc && npm -w @sijagakali/data-processing exec -- tsc && npm -w @sijagakali/notification-gateway exec -- tsc && npm -w @sijagakali/api exec -- tsc",
+    "build:shared": "npm -w @sijagakali/shared run build",
     "start": "concurrently --names \"collector,processing,notification,api\" --prefix-colors \"cyan,yellow,magenta,green\" \"npm run start:collector\" \"npm run start:processing\" \"npm run start:notification\" \"npm run start:api\"",
     "start:collector": "npm -w mqtt-collector run start",
     "start:processing": "npm -w data-processing run start",

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { ENV, type DeploymentWaRow, createCctvSignedUrlFlexible } from '@sijagaair/shared';
+import { ENV, type DeploymentWaRow, createCctvSignedUrlFlexible } from '@sijagakali/shared';
 import {
   buildTestPreview,
   buildTestEventFromDeviceAndDeployment,

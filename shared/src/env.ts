@@ -24,8 +24,8 @@ export const ENV = {
   MQTT_BROKER_URL: optional_env('MQTT_BROKER_URL', 'mqtt://localhost:1883'),
   MQTT_USERNAME: optional_env('MQTT_USERNAME'),
   MQTT_PASSWORD: optional_env('MQTT_PASSWORD'),
-  MQTT_CLIENT_ID_PREFIX: optional_env('MQTT_CLIENT_ID_PREFIX', 'sijagaair'),
-  DEFAULT_DEPLOYMENT_SLUG: optional_env('DEFAULT_DEPLOYMENT_SLUG', 'sijagaair-bojong-kulur'),
+  MQTT_CLIENT_ID_PREFIX: optional_env('MQTT_CLIENT_ID_PREFIX', 'sijagakali'),
+  DEFAULT_DEPLOYMENT_SLUG: optional_env('DEFAULT_DEPLOYMENT_SLUG', 'sijagakali-bojong-kulur'),
   FASTIFY_PORT: Number(optional_env('FASTIFY_PORT', '3100')),
   ALLOWED_ORIGIN: optional_env('ALLOWED_ORIGIN', 'http://localhost:5173'),
   /**

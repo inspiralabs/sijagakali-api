@@ -109,7 +109,7 @@ export function defaultWaMessageBody(event: NotificationEvent, dashboardUrl: str
   const statusLabel = WA_STATUS_LABEL[event.water_status] ?? event.water_status;
   const levelM = (event.water_level_cm / 100).toFixed(2);
   const lines = [
-    '*SiJagaAir* — Peringatan TMA',
+    '*SiJagaKali* — Peringatan TMA',
     '',
     `📍 Lokasi: *${event.location_name}*`,
     `⚠️ Status: *${statusLabel}*`,

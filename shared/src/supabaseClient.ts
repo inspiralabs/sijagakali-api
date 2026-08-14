@@ -8,12 +8,12 @@ let _client: ServerSupabase | null = null;
 
 /**
  * Singleton Supabase client memakai service_role — hanya untuk server.
- * Schema default: sijagaair.
+ * Schema default: sijagakali.
  */
 export function getSupabase(): ServerSupabase {
   if (!_client) {
     _client = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
-      db: { schema: 'sijagaair' },
+      db: { schema: 'sijagakali' },
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }

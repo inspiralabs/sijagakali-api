@@ -1,12 +1,12 @@
-# Supabase — migrasi schema SiJagaAir
+# Supabase — migrasi schema SiJagaKali
 
-Semua tabel aplikasi berada di schema Postgres **`sijagaair`**. Multi-wilayah tetap lewat kolom **`deployment_slug`** (bukan schema terpisah per desa).
+Semua tabel aplikasi berada di schema Postgres **`sijagakali`**. Multi-wilayah tetap lewat kolom **`deployment_slug`** (bukan schema terpisah per desa).
 
 ## Isi folder
 
 | File | Keterangan |
 |------|------------|
-| `migrations/20260209120000_init_sijagaair_core.sql` | `CREATE SCHEMA sijagaair` + tabel, trigger, Realtime, grant, RLS |
+| `migrations/20260209120000_init_sijagakali_core.sql` | `CREATE SCHEMA sijagakali` + tabel, trigger, Realtime, grant, RLS |
 | `migrations/20260209120100_seed_bojong_kulur_dev.sql` | Seed opsional Bojong Kulur |
 | `migrations/20260210140000_drop_legacy_public_tables.sql` | Template opsional untuk buang salinan lama di `public` (default no-op) |
 | `migrations/20260211120000_device_configs_stream_playback_url.sql` | Tambah kolom **`stream_playback_url`** (live CCTV) pada DB yang sudah pernah di-init tanpa kolom ini |
@@ -23,7 +23,7 @@ Semua tabel aplikasi berada di schema Postgres **`sijagaair`**. Multi-wilayah te
 
 ## Migrasi tambahan: `stream_playback_url` (live CCTV)
 
-- **Instalasi baru:** kolom sudah termasuk di `20260209120000_init_sijagaair_core.sql`.
+- **Instalasi baru:** kolom sudah termasuk di `20260209120000_init_sijagakali_core.sql`.
 - **Instalasi lama:** jalankan `20260211120000_device_configs_stream_playback_url.sql` sekali (aman `IF NOT EXISTS`).
 
 ## Wajib setelah migrasi: expose schema di API
@@ -31,10 +31,10 @@ Semua tabel aplikasi berada di schema Postgres **`sijagaair`**. Multi-wilayah te
 Supabase **PostgREST** hanya melayani schema yang diizinkan:
 
 1. Dashboard → **Project Settings** → **Data API** (atau **API** → *Exposed schemas*).
-2. Tambahkan **`sijagaair`** ke daftar schema yang di-expose (selain `public` jika perlu).
+2. Tambahkan **`sijagakali`** ke daftar schema yang di-expose (selain `public` jika perlu).
 3. Simpan.
 
-Tanpa langkah ini, client `supabase-js` dengan `db: { schema: 'sijagaair' }` akan mendapat error saat query.
+Tanpa langkah ini, client `supabase-js` dengan `db: { schema: 'sijagakali' }` akan mendapat error saat query.
 
 ## Client TypeScript (ringkas)
 
@@ -44,7 +44,7 @@ import { createClient } from '@supabase/supabase-js'
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
-  { db: { schema: 'sijagaair' } }
+  { db: { schema: 'sijagakali' } }
 )
 ```
 
@@ -67,7 +67,7 @@ Cocok untuk tim kecil atau sekali setup production.
 Gunakan **connection string direct** Postgres (host `db.<project-ref>.supabase.co`, bukan URL pooler jika ada masalah DDL), misalnya variabel `DIRECT_URL` atau `DATABASE_URL`.
 
 ```powershell
-cd d:\code-for-life\projects\ews-bojong-kulur\sijagaair-api
+cd d:\code-for-life\projects\ews-bojong-kulur\sijagakali-api
 # Hanya untuk DB kosong / clone baru. Jangan loop semua file ke production yang sudah di-init (CREATE akan bentrok).
 Get-ChildItem supabase\migrations\*.sql | Sort-Object Name | ForEach-Object { psql "$env:DIRECT_URL" -v ON_ERROR_STOP=1 -f $_.FullName }
 ```
@@ -87,14 +87,14 @@ Jika repositori sudah di-`supabase link` ke project dan memakai workflow resmi S
 
 ### Jika sebelumnya sudah pakai tabel di `public`
 
-Jalankan isi yang relevan dari `20260210140000_drop_legacy_public_tables.sql` (uncomment dengan hati-hati) **setelah** data aman / backup, lalu expose `sijagaair` seperti di atas.
+Jalankan isi yang relevan dari `20260210140000_drop_legacy_public_tables.sql` (uncomment dengan hati-hati) **setelah** data aman / backup, lalu expose `sijagakali` seperti di atas.
 
 ## Prisma — perlu atau tidak?
 
 - **Prisma Migrate** mengelola schema dari `schema.prisma`. Proyek ini memakai **SQL mentah** untuk fitur khas Supabase: RLS, policy per role, trigger, publication Realtime. Itu semua tetap valid SQL di Postgres; tidak wajib diganti Prisma.
 - Memakai **Prisma sebagai ORM** di service Node (query tipe-aman) **boleh**, terpisah dari file migrasi SQL di folder ini — yang penting **satu sumber kebenaran untuk migrasi**: kalau schema diubah, pilih apakah perubahan lewat SQL (`supabase/migrations`) atau lewat Prisma, supaya tidak dobel definisi.
-- **“Lebih baik Prisma?”** untuk kasus SiJagaAir + Supabase + RLS: **tetap SQL migrasi (seperti sekarang) biasanya lebih jelas** untuk policy dan audit keamanan. Prisma tidak menghapus kebutuhan memahami RLS; malah sering tim pakai SQL untuk RLS dan Prisma hanya untuk query aplikasi.
-- Jika tetap memakai Prisma di sisi app: set `schemas = ["sijagaair"]` (atau `searchPath`) sesuai dokumentasi Prisma + Supabase; `DIRECT_URL` gunakan host **direct** `db.<ref>.supabase.co:5432` untuk migrasi stabil.
+- **“Lebih baik Prisma?”** untuk kasus SiJagaKali + Supabase + RLS: **tetap SQL migrasi (seperti sekarang) biasanya lebih jelas** untuk policy dan audit keamanan. Prisma tidak menghapus kebutuhan memahami RLS; malah sering tim pakai SQL untuk RLS dan Prisma hanya untuk query aplikasi.
+- Jika tetap memakai Prisma di sisi app: set `schemas = ["sijagakali"]` (atau `searchPath`) sesuai dokumentasi Prisma + Supabase; `DIRECT_URL` gunakan host **direct** `db.<ref>.supabase.co:5432` untuk migrasi stabil.
 
 ## Storage bucket `cctv-images`
 

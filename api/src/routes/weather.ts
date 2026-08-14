@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { ENV, BMKG_ADM4_RE, getForecast } from '@sijagaair/shared';
+import { ENV, BMKG_ADM4_RE, getForecast } from '@sijagakali/shared';
 import type { RouteDeps } from '../types/deps.js';
 
 type DeviceWeatherRow = {

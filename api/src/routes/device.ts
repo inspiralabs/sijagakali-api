@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { createMqttClient, ENV } from '@sijagaair/shared';
+import { createMqttClient, ENV } from '@sijagakali/shared';
 import type { RouteDeps } from '../types/deps.js';
 
 const MAX_COOLDOWN_SEC = 604_800; // 7 hari
@@ -86,7 +86,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
       const mqttClient = createMqttClient('api-interval');
       await new Promise<void>((resolve, reject) => {
         mqttClient.on('connect', () => {
-          const topic = `sijagaair/${deviceId}/config/interval`;
+          const topic = `sijagakali/${deviceId}/config/interval`;
           const payload = JSON.stringify({ interval_sec, updated_by: 'admin-dashboard' });
           mqttClient.publish(topic, payload, { qos: 1 }, (err) => {
             mqttClient.end();
@@ -290,7 +290,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
         const mqttClient = createMqttClient('api-settings');
         await new Promise<void>((resolve, reject) => {
           mqttClient.on('connect', () => {
-            const topic = `sijagaair/${deviceId}/config/interval`;
+            const topic = `sijagakali/${deviceId}/config/interval`;
             const payload = JSON.stringify({
               interval_sec: read_interval_sec,
               updated_by: 'admin-dashboard',
@@ -522,7 +522,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
         const mqttClient = createMqttClient('api-device-patch');
         await new Promise<void>((resolve, reject) => {
           mqttClient.on('connect', () => {
-            const topic = `sijagaair/${deviceId}/config/interval`;
+            const topic = `sijagakali/${deviceId}/config/interval`;
             const payload = JSON.stringify({
               interval_sec: newInterval,
               updated_by: 'admin-dashboard',

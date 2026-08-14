@@ -11,7 +11,7 @@ import {
   formatWaMessage,
   buildSyntheticNotificationEvent,
   createCctvSignedUrlFlexible,
-} from '@sijagaair/shared';
+} from '@sijagakali/shared';
 import { getWhatsAppClient, isWhatsAppReady, resolveChannelTarget } from './whatsappClient.js';
 
 const require = createRequire(import.meta.url);

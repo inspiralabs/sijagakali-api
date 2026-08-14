@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Verifikasi JWT Supabase + baris di sijagaair.admins.
+ * Verifikasi JWT Supabase + baris di sijagakali.admins.
  */
 export function createRequireAdmin(supabase: SupabaseClient) {
   return async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
@@ -26,7 +26,7 @@ export function createRequireAdmin(supabase: SupabaseClient) {
       .maybeSingle();
 
     if (!adminRow) {
-      return reply.code(403).send({ error: 'Akun ini bukan admin SiJagaAir' });
+      return reply.code(403).send({ error: 'Akun ini bukan admin SiJagaKali' });
     }
   };
 }

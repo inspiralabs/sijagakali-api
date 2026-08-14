@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { ENV } from '@sijagaair/shared';
+import { ENV } from '@sijagakali/shared';
 import { buildApp } from './app.js';
 
 const app = await buildApp();

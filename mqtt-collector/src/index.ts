@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { createMqttClient, getSupabase, getSupabaseStorage, ENV } from '@sijagaair/shared';
+import { createMqttClient, getSupabase, getSupabaseStorage, ENV } from '@sijagakali/shared';
 import {
   TOPICS,
   extractDeviceId,
   type SensorDataPayload,
   type CctvMetaPayload,
-} from '@sijagaair/shared';
+} from '@sijagakali/shared';
 import { format } from 'date-fns';
 
 const supabase = getSupabase();

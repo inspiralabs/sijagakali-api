@@ -6,7 +6,7 @@ import {
   computeSelisihCmAboveWaspada,
   notifEmitter,
   type NotificationEvent,
-} from '@sijagaair/shared';
+} from '@sijagakali/shared';
 import { shouldNotify } from './notificationPolicy.js';
 
 const supabase = getSupabase();
@@ -303,7 +303,7 @@ function startRealtime() {
     .channel('ingestion-trigger')
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'sijagaair', table: 'mqtt_ingestion' },
+      { event: 'INSERT', schema: 'sijagakali', table: 'mqtt_ingestion' },
       (payload) => {
         const row = payload.new as Partial<MqttIngestionRow>;
         if (!row.correlation_id || !row.deployment_slug) return;

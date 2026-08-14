@@ -3,7 +3,7 @@ import type { WaterStatus } from './types.js';
 /** Template WA panjang per status jika DB kosong (preview, test, produksi). */
 export const BUILTIN_WA_TEMPLATE_BY_STATUS: Record<WaterStatus, string> = {
   normal: `━━━━━━━━━━━━━━━━━━━━
-🌊 *SiJagaAir | Laporan Muka Air*
+🌊 *SiJagaKali | Laporan TMA*
 📍 Pos Pantau: *{nama_pos}*
 🏘️ Wilayah: *{wilayah}*
 ━━━━━━━━━━━━━━━━━━━━
@@ -21,10 +21,10 @@ Kondisi aman. Tidak ada ancaman banjir.
 
 📊 *Pantau live:* {dashboard_url}
 ━━━━━━━━━━━━━━━━━━━━
-_Pesan otomatis oleh SiJagaAir_`,
+_Pesan otomatis oleh SiJagaKali_`,
 
   waspada: `━━━━━━━━━━━━━━━━━━━━
-⚠️ *SiJagaAir | PERINGATAN DINI*
+⚠️ *SiJagaKali | PERINGATAN DINI*
 📍 Pos Pantau: *{nama_pos}*
 🏘️ Wilayah: *{wilayah}*
 ━━━━━━━━━━━━━━━━━━━━
@@ -43,11 +43,11 @@ dan waspada terhadap kemungkinan banjir.
 
 📞 Info lebih lanjut: {kontak_petugas}
 ━━━━━━━━━━━━━━━━━━━━
-_Pesan otomatis oleh SiJagaAir_`,
+_Pesan otomatis oleh SiJagaKali_`,
 
   siaga: `🚨🚨🚨 *PERINGATAN BAHAYA* 🚨🚨🚨
 ━━━━━━━━━━━━━━━━━━━━
-🌊 *SiJagaAir | SIAGA BANJIR*
+🌊 *SiJagaKali | SIAGA BANJIR*
 📍 Pos Pantau: *{nama_pos}*
 🏘️ Wilayah: *{wilayah}*
 ━━━━━━━━━━━━━━━━━━━━
@@ -69,11 +69,11 @@ bersiap untuk evakuasi.
 
 📊 *Pantau live:* {dashboard_url}
 ━━━━━━━━━━━━━━━━━━━━
-_Pesan otomatis oleh SiJagaAir_`,
+_Pesan otomatis oleh SiJagaKali_`,
 
   bahaya: `🚨🚨🚨 *PERINGATAN BAHAYA* 🚨🚨🚨
 ━━━━━━━━━━━━━━━━━━━━
-🌊 *SiJagaAir | BAHAYA BANJIR*
+🌊 *SiJagaKali | BAHAYA BANJIR*
 📍 Pos Pantau: *{nama_pos}*
 🏘️ Wilayah: *{wilayah}*
 ━━━━━━━━━━━━━━━━━━━━
@@ -95,5 +95,5 @@ bersiap untuk evakuasi.
 
 📊 *Pantau live:* {dashboard_url}
 ━━━━━━━━━━━━━━━━━━━━
-_Pesan otomatis oleh SiJagaAir_`,
+_Pesan otomatis oleh SiJagaKali_`,
 };

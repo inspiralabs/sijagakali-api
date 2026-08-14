@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { getSupabaseStorage, getSupabase, ENV } from '@sijagaair/shared';
+import { getSupabaseStorage, getSupabase, ENV } from '@sijagakali/shared';
 import { registerCors } from './plugins/corsPlugin.js';
 import { createRequireAdmin } from './hooks/requireAdmin.js';
 import { registerHealthRoutes } from './routes/health.js';

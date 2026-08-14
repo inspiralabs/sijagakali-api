@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { ENV } from '@sijagaair/shared';
+import { ENV } from '@sijagakali/shared';
 import type { RouteDeps } from '../types/deps.js';
 
 export async function registerDeploymentRoutes(app: FastifyInstance, deps: RouteDeps) {

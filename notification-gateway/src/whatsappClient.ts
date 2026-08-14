@@ -1,5 +1,5 @@
 import { createRequire } from 'module';
-import { ENV } from '@sijagaair/shared';
+import { ENV } from '@sijagakali/shared';
 
 // whatsapp-web.js adalah CommonJS — harus di-require, bukan di-import langsung
 const require = createRequire(import.meta.url);
@@ -20,7 +20,7 @@ export async function getWhatsAppClient(): Promise<WaClient> {
     undefined;
 
   _client = new Client({
-    authStrategy: new LocalAuth({ clientId: 'sijagaair-gateway' }),
+    authStrategy: new LocalAuth({ clientId: 'sijagakali-gateway' }),
     puppeteer: {
       headless: true,
       ...(chromePath ? { executablePath: chromePath } : {}),
@@ -85,21 +85,28 @@ type ChannelEntry = { id: string; name: string };
  * Ambil semua WhatsApp Channel dari akun yang login.
  * Menggunakan retry (3x, jeda 3 detik) karena channel kadang belum
  * tersedia persis saat event 'ready' dipanggil.
- * Sama dengan getChannelsFromRuntime() di playground/wa-bot.
+ *
+ * ponytail: baca WAWebNewsletterCollection mentah, JANGAN lewat
+ * window.WWebJS.getChannels() bawaan whatsapp-web.js@1.34.7 — versi itu
+ * memanggil getChatModel()/Channel._patch() yang saat ini crash karena
+ * WhatsApp Web mengubah bentuk internal newsletter metadata (upstream bug,
+ * lihat github.com/wwebjs/whatsapp-web.js/issues/201675). id & name masih
+ * ada sebagai field mentah di model, jadi diambil langsung tanpa serialize.
+ * Upgrade path: kembali ke WWebJS.getChannels() setelah wwebjs merilis fix.
  */
 export async function listChannels(retries = 3, delayMs = 3000): Promise<ChannelEntry[]> {
   if (!_client || !_ready) return [];
 
   type RawChannel = { id?: { _serialized?: string }; name?: string; formattedTitle?: string };
-  type WWebPage = Window & { WWebJS?: { getChannels?: () => Promise<unknown[]> } };
+  type WWebPage = Window & { require: (moduleName: string) => { WAWebNewsletterCollection: { getModelsArray: () => RawChannel[] } } };
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const channels = await (_client as WaClient & {
         pupPage: { evaluate: <T>(fn: () => Promise<T>) => Promise<T> };
       }).pupPage.evaluate(async () => {
-        const raw = await (window as WWebPage).WWebJS?.getChannels?.() ?? [];
-        return (raw as RawChannel[])
+        const raw = (window as WWebPage).require('WAWebCollections').WAWebNewsletterCollection.getModelsArray();
+        return raw
           .map((c) => ({
             id: c.id?._serialized ?? null,
             name: c.name || c.formattedTitle || 'Unknown',
@@ -111,7 +118,7 @@ export async function listChannels(retries = 3, delayMs = 3000): Promise<Channel
 
       console.log(`[gateway] listChannels percobaan ${attempt}/${retries}: belum ada channel, tunggu ${delayMs}ms...`);
     } catch (err) {
-      console.warn(`[gateway] listChannels percobaan ${attempt}/${retries} gagal:`, err instanceof Error ? err.message : err);
+      console.warn(`[gateway] listChannels percobaan ${attempt}/${retries} gagal:`, err instanceof Error ? err.stack : err);
     }
 
     if (attempt < retries) {

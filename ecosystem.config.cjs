@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "sijagaair-api",
+      name: "sijagakali-api",
       cwd: __dirname,
       script: "npm",
       args: "run start:api",
@@ -10,7 +10,7 @@ module.exports = {
       restart_delay: 3000,
     },
     {
-      name: "sijagaair-mqtt-collector",
+      name: "sijagakali-mqtt-collector",
       cwd: __dirname,
       script: "npm",
       args: "run start:collector",
@@ -19,7 +19,7 @@ module.exports = {
       restart_delay: 3000,
     },
     {
-      name: "sijagaair-data-processing",
+      name: "sijagakali-data-processing",
       cwd: __dirname,
       script: "npm",
       args: "run start:processing",
@@ -28,7 +28,7 @@ module.exports = {
       restart_delay: 3000,
     },
     {
-      name: "sijagaair-notification-gateway",
+      name: "sijagakali-notification-gateway",
       cwd: __dirname,
       script: "npm",
       args: "run start:notification",

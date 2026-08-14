@@ -3,7 +3,7 @@ import {
   buildSyntheticNotificationEvent,
   type DeploymentWaRow,
   type NotificationEvent,
-} from '@sijagaair/shared';
+} from '@sijagakali/shared';
 
 export const DEPLOYMENT_WA_COLUMNS =
   'display_name,whatsapp_message_template,wa_template_normal,wa_template_waspada,wa_template_siaga,wa_template_bahaya,contact_petugas,contact_bpbd,contact_posko';

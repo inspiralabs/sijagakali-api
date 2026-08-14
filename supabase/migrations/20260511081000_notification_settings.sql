@@ -1,7 +1,7 @@
 -- ============================================================
 -- Tambah kolom template pesan WhatsApp per deployment
 -- ============================================================
-ALTER TABLE sijagaair.deployments
+ALTER TABLE sijagakali.deployments
   ADD COLUMN IF NOT EXISTS whatsapp_message_template TEXT DEFAULT NULL;
 
 -- NULL berarti pakai template default di kode notification-gateway.
@@ -12,5 +12,5 @@ ALTER TABLE sijagaair.deployments
 --   {status}       — label status (Siaga 4 — Normal, dsb.)
 --   {waktu}        — waktu WIB (format lokal)
 --   {dashboard_url} — URL dashboard publik
-COMMENT ON COLUMN sijagaair.deployments.whatsapp_message_template
+COMMENT ON COLUMN sijagakali.deployments.whatsapp_message_template
   IS 'Template pesan WhatsApp kustom per deployment. NULL = pakai default. Placeholder: {lokasi} {level_cm} {level_m} {status} {waktu} {dashboard_url}';

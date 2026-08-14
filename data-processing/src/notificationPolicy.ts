@@ -1,4 +1,4 @@
-import type { WaterStatus } from '@sijagaair/shared';
+import type { WaterStatus } from '@sijagakali/shared';
 
 interface PolicyConfig {
   notify_digest_hours_local: number[];

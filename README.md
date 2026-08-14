@@ -1,6 +1,6 @@
-# SiJagaAir — API & worker (monorepo)
+# SiJagaKali — API & worker (monorepo)
 
-Layanan backend: **MQTT collector**, **data processing**, **notification gateway** (WhatsApp), dan **REST API** (Fastify). Paket bersama: **`@sijagaair/shared`**.
+Layanan backend: **MQTT collector**, **data processing**, **notification gateway** (WhatsApp), dan **REST API** (Fastify). Paket bersama: **`@sijagakali/shared`**.
 
 ---
 
@@ -9,12 +9,12 @@ Layanan backend: **MQTT collector**, **data processing**, **notification gateway
 ### 1. Prasyarat
 
 - **Node.js** LTS (mis. 20.x atau 22.x) dan **npm**
-- File **`.env`** di root `sijagaair-api/` (atau per layanan, sesuai cara Anda mengatur variabel — lihat `shared` / `supabase/README.md` untuk daftar variabel)
+- File **`.env`** di root `sijagakali-api/` (atau per layanan, sesuai cara Anda mengatur variabel — lihat `shared` / `supabase/README.md` untuk daftar variabel)
 - **notification-gateway** memakai **whatsapp-web.js** (Puppeteer): di Linux biasanya perlu dependensi Chromium sistem; pastikan RAM cukup (~512MB+ per proses). **Troubleshooting:** [`notification-gateway/README.md`](./notification-gateway/README.md).
 
 ### 2. Instal & build & jalan
 
-Dari folder **`sijagaair-api/`**:
+Dari folder **`sijagakali-api/`**:
 
 ```bash
 npm ci
@@ -61,29 +61,29 @@ npm -w api run start
 
 ## Frontend (dashboard)
 
-Repo terpisah: **`../sijagaair-app`**.
+Repo terpisah: **`../sijagakali-app`**.
 
 ```bash
-cd ../sijagaair-app
+cd ../sijagakali-app
 npm ci
 npm run build
 ```
 
-Hasil di **`dist/`** — deploy sebagai situs statis (Nginx, S3+CloudFront, Vercel, dll.). Set **`VITE_SIJAGAAIRAPI_URL`** ke URL publik API Anda saat build.
+Hasil di **`dist/`** — deploy sebagai situs statis (Nginx, S3+CloudFront, Vercel, dll.). Set **`VITE_SIJAGAKALIAPI_URL`** ke URL publik API Anda saat build.
 
 ---
 
 ## Dokumentasi lain
 
 - Skema DB & migrasi: `supabase/README.md`
-- Fitur sistem (bahasa mudah): `../plans/SiJagaAir-Fitur-dan-Contoh-Kasus.md`
+- Fitur sistem (bahasa mudah): `../plans/SiJagaKali-Fitur-dan-Contoh-Kasus.md`
 
 ---
 
 ## Jalankan dengan PM2
 
 ```bash
-cd sijagaair-api
+cd sijagakali-api
 npm ci
 npm run build
 pm2 start ecosystem.config.cjs

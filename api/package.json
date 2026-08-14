@@ -1,16 +1,16 @@
 {
-  "name": "@sijagaair/api",
+  "name": "@sijagakali/api",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "prebuild": "npm --prefix .. run build -w @sijagaair/shared",
+    "prebuild": "npm --prefix .. run build -w @sijagakali/shared",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc"
   },
   "dependencies": {
-    "@sijagaair/shared": "*",
+    "@sijagakali/shared": "*",
     "@supabase/supabase-js": "^2.49.1",
     "fastify": "^5.3.3",
     "@fastify/cors": "^10.0.2",
