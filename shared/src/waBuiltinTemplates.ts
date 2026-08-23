@@ -54,7 +54,7 @@ _Pesan otomatis oleh SiJagaKali_`,
 
 📏 *Tinggi Muka Air*
   Saat ini : ⚠️ *{level_cm} cm* (~{level_m} m)
-  Ambang siaga : {batas_siaga} cm — 🔴 TERLAMPAUI
+  Ambang siaga : {batas_siaga} cm - 🔴 TERLAMPAUI
 
 🔴 *Status: SIAGA*
 Ketinggian air sudah melewati batas siaga.
@@ -80,7 +80,7 @@ _Pesan otomatis oleh SiJagaKali_`,
 
 📏 *Tinggi Muka Air*
   Saat ini : ⚠️ *{level_cm} cm* (~{level_m} m)
-  Ambang bahaya : {batas_bahaya} cm — 🔴 TERLAMPAUI
+  Ambang bahaya : {batas_bahaya} cm - 🔴 TERLAMPAUI
 
 🔴 *Status: BAHAYA*
 Ketinggian air sudah melewati batas bahaya.

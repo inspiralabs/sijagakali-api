@@ -30,6 +30,7 @@ type DeviceConfigRow = {
   deployment_slug: string;
   device_id: string;
   location_name: string;
+  display_name: string | null;
   read_interval_sec: number;
   threshold_waspada_cm: number;
   threshold_siaga_cm: number;
@@ -78,7 +79,7 @@ async function getDeviceConfig(
   const { data, error } = await supabase
     .from('device_configs')
     .select(
-      'deployment_slug,device_id,location_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec'
+      'deployment_slug,device_id,location_name,display_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec'
     )
     .eq('deployment_slug', deploymentSlug)
     .eq('device_id', deviceId)
@@ -204,6 +205,7 @@ async function tryDispatch(
       deployment_slug: slug,
       device_id: resolvedDeviceId,
       location_name: config.location_name,
+      device_display_name: config.display_name,
       water_level_cm: waterLevelCm,
       water_status: waterStatus,
       cctv_image_path: cctvRow?.cctv_storage_path ?? null,

@@ -47,7 +47,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, deps: Rou
 
     const { data: deviceCfg } = await supabase
       .from('device_configs')
-      .select('location_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm')
+      .select('location_name,display_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm')
       .eq('deployment_slug', slug)
       .eq('device_id', device_id)
       .maybeSingle();
@@ -70,6 +70,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, deps: Rou
       slug,
       device_id,
       location_name: locationName,
+      device_display_name: deviceCfg?.display_name ?? null,
       water_level_cm,
       water_status: ws,
       read_interval_sec: readInterval,

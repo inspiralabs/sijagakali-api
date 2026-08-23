@@ -15,10 +15,10 @@ export interface DeploymentWaRow {
 }
 
 export const WA_STATUS_LABEL: Record<string, string> = {
-  normal: 'Siaga 4 — Normal',
-  waspada: 'Siaga 3 — Waspada',
-  siaga: 'Siaga 2 — Siaga',
-  bahaya: 'Siaga 1 — BAHAYA',
+  normal: 'Siaga 4 - Normal',
+  waspada: 'Siaga 3 - Waspada',
+  siaga: 'Siaga 2 - Siaga',
+  bahaya: 'Siaga 1 - BAHAYA',
 };
 
 export function formatWaktuWib(isoOrDate: string | Date): string {
@@ -56,7 +56,7 @@ export function pickWaTemplateString(
 }
 
 function dash(s: string | null | undefined): string {
-  if (s == null || !String(s).trim()) return '—';
+  if (s == null || !String(s).trim()) return '-';
   return String(s);
 }
 
@@ -81,7 +81,10 @@ export function applyWaPlaceholders(
     text = text.split(k).join(v);
   };
 
-  rep('{nama_pos}', event.location_name);
+  const namaPos = event.device_display_name?.trim()
+    ? `${event.device_display_name.trim()} - ${event.location_name}`
+    : event.location_name;
+  rep('{nama_pos}', namaPos);
   rep('{lokasi}', event.location_name);
   rep('{wilayah}', event.deployment_display_name);
   rep('{deployment_slug}', event.deployment_slug);
@@ -109,7 +112,7 @@ export function defaultWaMessageBody(event: NotificationEvent, dashboardUrl: str
   const statusLabel = WA_STATUS_LABEL[event.water_status] ?? event.water_status;
   const levelM = (event.water_level_cm / 100).toFixed(2);
   const lines = [
-    '*SiJagaKali* — Peringatan TMA',
+    '*SiJagaKali* - Peringatan TMA',
     '',
     `📍 Lokasi: *${event.location_name}*`,
     `⚠️ Status: *${statusLabel}*`,

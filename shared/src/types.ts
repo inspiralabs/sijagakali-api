@@ -52,6 +52,8 @@ export interface NotificationEvent {
   deployment_slug: string;
   device_id: string;
   location_name: string;
+  /** `device_configs.display_name` — nama sungai/kali, untuk placeholder {nama_pos} */
+  device_display_name: string | null;
   water_level_cm: number;
   water_status: 'normal' | 'waspada' | 'siaga' | 'bahaya';
   cctv_image_path: string | null;

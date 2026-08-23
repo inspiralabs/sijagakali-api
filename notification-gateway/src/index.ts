@@ -172,7 +172,7 @@ gatewayApp.post<{ Body: SendTestBody }>('/send-test', async (req, reply) => {
   const { data: cfg } = await supabase
     .from('device_configs')
     .select(
-      'location_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm'
+      'location_name,display_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm'
     )
     .eq('deployment_slug', slug)
     .eq('device_id', device_id)
@@ -191,6 +191,7 @@ gatewayApp.post<{ Body: SendTestBody }>('/send-test', async (req, reply) => {
       deployment_slug: slug,
       device_id,
       location_name: loc,
+      device_display_name: cfg?.display_name ?? null,
       water_level_cm,
       water_status: water_status as NotificationEvent['water_status'],
       deployment_display_name: depRow?.display_name ?? slug,

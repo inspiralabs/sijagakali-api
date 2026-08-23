@@ -29,6 +29,7 @@ export function buildTestEventFromDeviceAndDeployment(opts: {
   slug: string;
   device_id: string;
   location_name: string;
+  device_display_name: string | null;
   water_level_cm: number;
   water_status: NotificationEvent['water_status'];
   read_interval_sec: number;
@@ -43,6 +44,7 @@ export function buildTestEventFromDeviceAndDeployment(opts: {
       deployment_slug: slug,
       device_id: rest.device_id,
       location_name: rest.location_name,
+      device_display_name: rest.device_display_name,
       water_level_cm: rest.water_level_cm,
       water_status: rest.water_status,
       deployment_display_name: deploymentRow?.display_name ?? slug,
