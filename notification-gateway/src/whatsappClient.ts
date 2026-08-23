@@ -53,15 +53,20 @@ export async function getWhatsAppClient(): Promise<WaClient> {
       .info?.wid?._serialized;
     console.log('[gateway] WhatsApp client ready. Akun:', wid ?? '—');
 
-    // Tampilkan daftar channel — berguna untuk mencari WHATSAPP_CHANNEL_ID
-    const channels = await listChannels();
-    if (channels.length) {
-      console.log(`[gateway] ${channels.length} channel ditemukan:`);
-      channels.forEach((ch) => console.log(`  - ${ch.name} | ${ch.id}`));
+    // Listing channel hanya perlu dijalankan saat WHATSAPP_CHANNEL_ID belum diisi —
+    // kalau sudah ada di env, resolveChannelTarget langsung pakai itu tanpa listChannels.
+    if (ENV.WHATSAPP_CHANNEL_ID) {
+      console.log('[gateway] WHATSAPP_CHANNEL_ID sudah diisi di env, skip auto-detect channel:', ENV.WHATSAPP_CHANNEL_ID);
     } else {
-      console.log('[gateway] Tidak ada WhatsApp Channel yang ditemukan di akun ini.');
-      if (ENV.WHATSAPP_OWNER_NUMBER) {
-        console.log(`[gateway] Akan fallback ke DM owner: ${ENV.WHATSAPP_OWNER_NUMBER}`);
+      const channels = await listChannels();
+      if (channels.length) {
+        console.log(`[gateway] ${channels.length} channel ditemukan:`);
+        channels.forEach((ch) => console.log(`  - ${ch.name} | ${ch.id}`));
+      } else {
+        console.log('[gateway] Tidak ada WhatsApp Channel yang ditemukan di akun ini.');
+        if (ENV.WHATSAPP_OWNER_NUMBER) {
+          console.log(`[gateway] Akan fallback ke DM owner: ${ENV.WHATSAPP_OWNER_NUMBER}`);
+        }
       }
     }
   });
