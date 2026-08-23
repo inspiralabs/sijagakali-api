@@ -9,6 +9,9 @@ import { registerNotificationRoutes } from './routes/notification.js';
 import { registerDeploymentRoutes } from './routes/deployment.js';
 import { registerAdminRoutes } from './routes/admins.js';
 import { registerWeatherRoutes } from './routes/weather.js';
+import { registerWilayahRoutes } from './routes/wilayah.js';
+import { registerBanjirEventRoutes } from './routes/banjirEvents.js';
+import { registerWargaTerdampakRoutes } from './routes/wargaTerdampak.js';
 import type { RouteDeps } from './types/deps.js';
 
 export async function buildApp() {
@@ -34,6 +37,9 @@ export async function buildApp() {
   await registerDeploymentRoutes(app, deps);
   await registerAdminRoutes(app, deps);
   await registerWeatherRoutes(app, deps);
+  await registerWilayahRoutes(app, deps);
+  await registerBanjirEventRoutes(app, deps);
+  await registerWargaTerdampakRoutes(app, deps);
 
   return app;
 }
