@@ -12,6 +12,7 @@ import { registerWeatherRoutes } from './routes/weather.js';
 import { registerWilayahRoutes } from './routes/wilayah.js';
 import { registerBanjirEventRoutes } from './routes/banjirEvents.js';
 import { registerWargaTerdampakRoutes } from './routes/wargaTerdampak.js';
+import { registerMockDataRoutes } from './routes/mockData.js';
 import type { RouteDeps } from './types/deps.js';
 
 export async function buildApp() {
@@ -40,6 +41,7 @@ export async function buildApp() {
   await registerWilayahRoutes(app, deps);
   await registerBanjirEventRoutes(app, deps);
   await registerWargaTerdampakRoutes(app, deps);
+  await registerMockDataRoutes(app, deps);
 
   return app;
 }
