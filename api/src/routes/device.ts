@@ -565,4 +565,49 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
     }
     return reply.send({ ok: true });
   });
+
+  app.patch<{
+    Params: { deviceId: string };
+    Querystring: { deployment_slug?: string };
+  }>('/api/device/:deviceId/restore', { preHandler: requireAdmin }, async (req, reply) => {
+    const { deviceId } = req.params;
+    const slug = req.query.deployment_slug ?? ENV.DEFAULT_DEPLOYMENT_SLUG;
+
+    const { error } = await supabase
+      .from('device_configs')
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq('deployment_slug', slug)
+      .eq('device_id', deviceId);
+
+    if (error) {
+      req.log.error({ msg: 'restore device_configs error', error: error.message });
+      return reply.code(500).send({ error: error.message });
+    }
+    return reply.send({ ok: true });
+  });
+
+  app.delete<{
+    Params: { deviceId: string };
+    Querystring: { deployment_slug?: string };
+  }>('/api/device/:deviceId/permanent', { preHandler: requireAdmin }, async (req, reply) => {
+    const { deviceId } = req.params;
+    const slug = req.query.deployment_slug ?? ENV.DEFAULT_DEPLOYMENT_SLUG;
+
+    const { error } = await supabase
+      .from('device_configs')
+      .delete()
+      .eq('deployment_slug', slug)
+      .eq('device_id', deviceId);
+
+    if (error) {
+      if (error.code === '23503') {
+        return reply
+          .code(409)
+          .send({ error: 'Tidak bisa dihapus permanen: masih ada data pembacaan/riwayat untuk perangkat ini.' });
+      }
+      req.log.error({ msg: 'permanent delete device_configs error', error: error.message });
+      return reply.code(500).send({ error: error.message });
+    }
+    return reply.send({ ok: true });
+  });
 }
