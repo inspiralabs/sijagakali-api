@@ -19,6 +19,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, deps: Rou
       water_level_cm: number;
       water_status: string;
       include_cctv?: boolean;
+      cctv_image_path?: string | null;
       send?: boolean;
       message_text?: string | null;
     };
@@ -29,6 +30,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, deps: Rou
       water_level_cm,
       water_status: waterStatusRaw,
       include_cctv = false,
+      cctv_image_path,
       send = false,
       message_text,
     } = req.body;
@@ -86,25 +88,26 @@ export async function registerNotificationRoutes(app: FastifyInstance, deps: Rou
     if (!include_cctv) {
       skipImageReason = 'unchecked';
     } else {
-      const { data: latestReading } = await supabase
-        .from('sensor_readings')
-        .select('cctv_image_path')
-        .eq('deployment_slug', slug)
-        .eq('device_id', device_id)
-        .not('cctv_image_path', 'is', null)
-        .order('recorded_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const overridePath = cctv_image_path?.trim();
+      let imagePath = overridePath || null;
 
-      if (!latestReading?.cctv_image_path) {
+      if (!imagePath) {
+        const { data: latestReading } = await supabase
+          .from('sensor_readings')
+          .select('cctv_image_path')
+          .eq('deployment_slug', slug)
+          .eq('device_id', device_id)
+          .not('cctv_image_path', 'is', null)
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        imagePath = latestReading?.cctv_image_path ?? null;
+      }
+
+      if (!imagePath) {
         skipImageReason = 'no_path';
       } else {
-        cctvSignedUrl = await createCctvSignedUrlFlexible(
-          supabaseStorage,
-          bucket,
-          latestReading.cctv_image_path,
-          device_id
-        );
+        cctvSignedUrl = await createCctvSignedUrlFlexible(supabaseStorage, bucket, imagePath, device_id);
         if (!cctvSignedUrl) {
           skipImageReason = 'signed_url_failed';
         }

@@ -53,6 +53,8 @@ export async function getWhatsAppClient(): Promise<WaClient> {
       .info?.wid?._serialized;
     console.log('[gateway] WhatsApp client ready. Akun:', wid ?? '—');
 
+    await patchNewsletterAvParams(_client!);
+
     // Listing channel hanya perlu dijalankan saat WHATSAPP_CHANNEL_ID belum diisi —
     // kalau sudah ada di env, resolveChannelTarget langsung pakai itu tanpa listChannels.
     if (ENV.WHATSAPP_CHANNEL_ID) {
@@ -82,6 +84,30 @@ export async function getWhatsAppClient(): Promise<WaClient> {
 
 export function isWhatsAppReady(): boolean {
   return _ready;
+}
+
+/**
+ * ponytail: kirim media ke WhatsApp Channel crash "msg.avParams is not a
+ * function" — kode injected whatsapp-web.js@1.34.7 (Utils.js sendMessage,
+ * cabang isChannel) memanggil msg.avParams() tanpa cek, tapi WhatsApp Web versi
+ * saat ini tidak lagi expose avParams() di model pesan (drift server WA,
+ * sama kelasnya dengan bug listChannels di atas). Tambal di prototype WA
+ * sendiri saat ready — BUKAN edit node_modules (hilang saat reinstall).
+ * Upgrade path: hapus setelah wwebjs merilis fix untuk media-ke-channel.
+ */
+async function patchNewsletterAvParams(client: WaClient): Promise<void> {
+  type WWebPage = Window & { require: (moduleName: string) => { Msg: { modelClass: { prototype: Record<string, unknown> } } } };
+  try {
+    await (client as WaClient & { pupPage: { evaluate: <T>(fn: () => T) => Promise<T> } }).pupPage.evaluate(() => {
+      const ModelClass = (window as WWebPage).require('WAWebCollections').Msg.modelClass;
+      if (typeof ModelClass.prototype.avParams !== 'function') {
+        ModelClass.prototype.avParams = () => ({});
+      }
+    });
+    console.log('[gateway] Patch avParams (kirim media ke Channel) terpasang.');
+  } catch (err) {
+    console.warn('[gateway] Gagal memasang patch avParams:', err instanceof Error ? err.message : err);
+  }
 }
 
 type ChannelEntry = { id: string; name: string };
