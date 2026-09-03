@@ -58,8 +58,8 @@ const deploymentCache = new Map<string, DeploymentNotifyRow>();
 setInterval(() => deploymentCache.clear(), 5 * 60_000);
 
 const metrics = {
-  poll_skipped_realtime: 0,
-  poll_ran: 0,
+  poll_ran_realtime_healthy: 0,
+  poll_ran_realtime_unhealthy: 0,
   dispatch_scheduled: 0,
   dispatch_ok: 0,
 };
@@ -68,6 +68,14 @@ let realtimeHealthy = false;
 
 const dispatchTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const dispatchInFlight = new Set<string>();
+
+// Realtime notifies almost instantly (WAL-based), but the row can take a
+// moment longer to become visible to a plain SELECT through the pooled
+// PostgREST connection. If tryDispatch finds nothing yet, retry a few times
+// instead of silently dropping the reading — see 2026-09-03 investigation.
+const MAX_DISPATCH_RETRIES = 5;
+const DISPATCH_RETRY_DELAY_MS = 1500;
+const dispatchRetryCounts = new Map<string, number>();
 
 async function getDeviceConfig(
   deploymentSlug: string,
@@ -258,12 +266,29 @@ async function runDispatch(
   if (dispatchInFlight.has(key)) return;
 
   dispatchInFlight.add(key);
+  let ok = false;
   try {
-    const ok = await tryDispatch(correlationId, deploymentSlug, deviceId);
+    ok = await tryDispatch(correlationId, deploymentSlug, deviceId);
     if (ok) metrics.dispatch_ok++;
   } finally {
     dispatchInFlight.delete(key);
   }
+
+  if (ok) {
+    dispatchRetryCounts.delete(key);
+    return;
+  }
+
+  const attempt = (dispatchRetryCounts.get(key) ?? 0) + 1;
+  if (attempt > MAX_DISPATCH_RETRIES) {
+    dispatchRetryCounts.delete(key);
+    console.error(
+      `[processing] dispatch gave up after ${MAX_DISPATCH_RETRIES} retries — corr=${correlationId} slug=${deploymentSlug} deviceId=${deviceId ?? '(none)'}`
+    );
+    return;
+  }
+  dispatchRetryCounts.set(key, attempt);
+  setTimeout(() => void runDispatch(correlationId, deploymentSlug, deviceId), DISPATCH_RETRY_DELAY_MS);
 }
 
 /** Polling fallback: cek staging untuk correlation_id yang belum di-dispatch */
@@ -291,12 +316,16 @@ async function pollPending() {
   }
 }
 
+// Always sweep, even while Realtime is healthy: it's the only true safety net for a row
+// whose retries (scheduleDispatch/runDispatch) exhausted without ever finding it — see
+// 2026-09-03 investigation. realtimeHealthy only affects the *metrics* label, not whether
+// the sweep runs.
 async function pollIfNeeded() {
   if (realtimeHealthy) {
-    metrics.poll_skipped_realtime++;
-    return;
+    metrics.poll_ran_realtime_healthy++;
+  } else {
+    metrics.poll_ran_realtime_unhealthy++;
   }
-  metrics.poll_ran++;
   await pollPending();
 }
 
