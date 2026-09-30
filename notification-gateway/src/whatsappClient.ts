@@ -20,7 +20,11 @@ export async function getWhatsAppClient(): Promise<WaClient> {
     undefined;
 
   _client = new Client({
-    authStrategy: new LocalAuth({ clientId: 'sijagakali-gateway' }),
+    authStrategy: new LocalAuth({
+      clientId: 'sijagakali-gateway',
+      // Docker: sesi disimpan di volume (WA_SESSION_DIR) supaya tidak scan QR ulang tiap deploy.
+      ...(process.env.WA_SESSION_DIR ? { dataPath: process.env.WA_SESSION_DIR } : {}),
+    }),
     puppeteer: {
       headless: true,
       ...(chromePath ? { executablePath: chromePath } : {}),

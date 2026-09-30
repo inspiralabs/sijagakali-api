@@ -239,8 +239,10 @@ gatewayApp.post<{ Body: { deployment_slug: string } }>('/invalidate-template', a
   return reply.send({ ok: true });
 });
 
+gatewayApp.get('/health', async () => ({ ok: true }));
+
 const gatewayPort = ENV.GATEWAY_HTTP_PORT;
-await gatewayApp.listen({ port: gatewayPort, host: '127.0.0.1' });
+await gatewayApp.listen({ port: gatewayPort, host: ENV.GATEWAY_BIND });
 console.log(`[notification-gateway] HTTP internal listening on port ${gatewayPort}`);
 
 getWhatsAppClient().catch((err) => {

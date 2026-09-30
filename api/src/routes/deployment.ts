@@ -45,7 +45,7 @@ export async function registerDeploymentRoutes(app: FastifyInstance, deps: Route
     }
 
     try {
-      await fetch(`http://127.0.0.1:${ENV.GATEWAY_HTTP_PORT}/invalidate-template`, {
+      await fetch(`${ENV.GATEWAY_URL}/invalidate-template`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deployment_slug: slug }),

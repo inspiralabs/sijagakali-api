@@ -39,6 +39,10 @@ export const ENV = {
   DASHBOARD_URL: optional_env('DASHBOARD_URL', ''),
   /** Port HTTP internal untuk notification-gateway (default 3101). */
   GATEWAY_HTTP_PORT: Number(optional_env('GATEWAY_HTTP_PORT', '3101')),
+  /** Alamat bind HTTP internal notification-gateway. Lokal/pm2: 127.0.0.1; Docker: 0.0.0.0. */
+  GATEWAY_BIND: optional_env('GATEWAY_BIND', '127.0.0.1'),
+  /** URL notification-gateway yang dipanggil api. Docker: http://notification-gateway:3101. */
+  GATEWAY_URL: optional_env('GATEWAY_URL', `http://127.0.0.1:${optional_env('GATEWAY_HTTP_PORT', '3101')}`),
   /** Interval polling fallback mqtt_ingestion di data-processing (ms). */
   INGESTION_POLL_INTERVAL_MS: optional_env_number('INGESTION_POLL_INTERVAL_MS', 60_000),
   /** Debounce tryDispatch per correlation_id (ms). */
