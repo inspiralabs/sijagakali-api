@@ -1,0 +1,74 @@
+# Deploy VPS Inspiralabs — pola multi-service (lihat server-setup/templates/README.md).
+x-app: &app
+  env_file:
+    - path: .env
+      required: false
+  restart: unless-stopped
+  networks: [edge]
+
+x-runtime: &runtime
+  <<: *app
+  build:
+    context: .
+    target: runtime
+  image: sijagakali-api:runtime
+
+services:
+  api:
+    <<: *runtime
+    command: ["node", "api/dist/index.js"]
+    environment:
+      FASTIFY_PORT: "3100"
+      GATEWAY_URL: http://notification-gateway:3101
+    expose: ["3100"]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sijagakali-api.rule=Host(`api-sijagakali.inspiralabs.id`)
+      - traefik.http.services.sijagakali-api.loadbalancer.server.port=3100
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  mqtt-collector:
+    <<: *runtime
+    command: ["node", "mqtt-collector/dist/index.js"]
+    healthcheck:
+      disable: true
+
+  data-processing:
+    <<: *runtime
+    command: ["node", "data-processing/dist/index.js"]
+    healthcheck:
+      disable: true
+
+  notification-gateway:
+    <<: *app
+    build:
+      context: .
+      target: runtime-wa
+    image: sijagakali-api:wa
+    command: ["node", "notification-gateway/dist/index.js"]
+    environment:
+      GATEWAY_BIND: 0.0.0.0
+      GATEWAY_HTTP_PORT: "3101"
+      WA_SESSION_DIR: /data/wa
+    volumes:
+      - wa-session:/data/wa
+    mem_limit: 1g
+    shm_size: 256m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3101/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  wa-session:
+
+networks:
+  edge:
+    external: true
