@@ -5,6 +5,7 @@ export * from './types.js';
 export * from './waMessageFormat.js';
 export * from './waBuiltinTemplates.js';
 export * from './cctvSignedUrl.js';
+export * from './cctvSnapshot.js';
 export * from './notifyGateway.js';
 export * from './bmkg/types.js';
 export {

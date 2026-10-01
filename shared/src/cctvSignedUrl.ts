@@ -49,6 +49,13 @@ export function buildCctvStorageKeyCandidates(storagePath: string, deviceId: str
   return out;
 }
 
+/** Path objek snapshot CCTV: `{slug}/{deviceId}/{YYYY-MM-DD}/{unix_ts}_{deviceId}.jpg` (tanggal waktu lokal proses). */
+export function cctvStoragePath(deploymentSlug: string, deviceId: string, now = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  const day = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  return `${deploymentSlug}/${deviceId}/${day}/${Math.floor(now.getTime() / 1000)}_${deviceId}.jpg`;
+}
+
 /** Signed URL pertama yang berhasil, atau null. */
 export async function createCctvSignedUrlFlexible(
   storage: SupabaseClient<any, any, any, any, any>,

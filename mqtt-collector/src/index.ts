@@ -1,12 +1,11 @@
 import 'dotenv/config';
-import { createMqttClient, getSupabase, getSupabaseStorage, ENV } from '@sijagakali/shared';
+import { createMqttClient, getSupabase, getSupabaseStorage, ENV, cctvStoragePath } from '@sijagakali/shared';
 import {
   TOPICS,
   extractDeviceId,
   type SensorDataPayload,
   type CctvMetaPayload,
 } from '@sijagakali/shared';
-import { format } from 'date-fns';
 
 const supabase = getSupabase();
 const supabaseStorage = getSupabaseStorage();
@@ -94,9 +93,7 @@ async function handleCctvImage(topic: string, payload: Buffer) {
   const deviceId = extractDeviceId(topic);
   if (!deviceId) return;
 
-  const dateFolder = format(new Date(), 'yyyy-MM-dd');
-  const ts = Math.floor(Date.now() / 1000);
-  const filePath = `${defaultDeployment}/${deviceId}/${dateFolder}/${ts}_${deviceId}.jpg`;
+  const filePath = cctvStoragePath(defaultDeployment, deviceId);
 
   const { error: uploadError } = await supabaseStorage.storage
     .from(bucket)
