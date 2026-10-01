@@ -8,6 +8,7 @@ TL-MR100** dan dikelola dari **VPS** (`srv2016160`, 72.62.125.210).
 | [01-cctv.md](01-cctv.md) | Kamera Hikvision DS-2CD1041G2-LIUF: live video + snapshot |
 | [02-raspberry-pi.md](02-raspberry-pi.md) | Raspberry Pi 3B+ sebagai "jembatan" Tailscale ke kamera |
 | [03-esp32.md](03-esp32.md) | ESP32-C5 + sensor ultrasonik A01ANY4B: level air via MQTT |
+| [04-ota.md](04-ota.md) | Update firmware ESP32 tanpa kabel: build `.bin` → unggah ke dashboard OTA → deploy |
 
 ## Gambaran
 
