@@ -1,5 +1,5 @@
 import { ENV } from './env.js';
-import { getSupabaseStorage } from './supabaseClient.js';
+import { getSupabase, getSupabaseStorage } from './supabaseClient.js';
 import { fetchHikvisionSnapshot } from './hikvision.js';
 import { cctvStoragePath } from './cctvSignedUrl.js';
 
@@ -24,6 +24,13 @@ export async function captureSnapshot(opts: {
       .storage.from(ENV.SUPABASE_STORAGE_BUCKET_CCTV_IMAGES)
       .upload(path, jpeg, { contentType: 'image/jpeg', upsert: false });
     if (error) throw new Error(`upload Storage: ${error.message}`);
+    // Satu sumber "foto terbaru" untuk dashboard + jam terakhir snapshot (dasar jadwal berkala).
+    const { error: cfgErr } = await getSupabase()
+      .from('device_configs')
+      .update({ last_snapshot_path: path, last_snapshot_at: new Date().toISOString() })
+      .eq('deployment_slug', opts.deploymentSlug)
+      .eq('device_id', opts.deviceId);
+    if (cfgErr) console.error('[cctv_snapshot] UPDATE device_configs.last_snapshot gagal:', cfgErr.message);
     return path;
   } catch (err) {
     console.error(

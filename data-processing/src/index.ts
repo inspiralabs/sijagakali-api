@@ -6,6 +6,7 @@ import {
   computeSelisihCmAboveWaspada,
   notifyGateway,
   captureSnapshot,
+  isSnapshotDue,
   type NotificationEvent,
 } from '@sijagakali/shared';
 import { shouldNotify } from './notificationPolicy.js';
@@ -368,6 +369,51 @@ function startRealtime() {
       }
     });
 }
+
+/** Cek jadwal snapshot berkala tiap menit; interval per device diatur admin (snapshot_interval_min). */
+const SNAPSHOT_TICK_MS = 60_000;
+/** Percobaan terakhir per device (termasuk yang gagal) — kamera mati tidak dicoba ulang tiap menit. */
+const lastSnapshotAttempt = new Map<string, number>();
+let snapshotTickRunning = false;
+
+async function runPeriodicSnapshots() {
+  if (snapshotTickRunning) return;
+  snapshotTickRunning = true;
+  try {
+    const { data, error } = await supabase
+      .from('device_configs')
+      .select('deployment_slug,device_id,cctv_local_ip,snapshot_interval_min,last_snapshot_at')
+      .eq('is_active', true)
+      .not('cctv_local_ip', 'is', null)
+      .gt('snapshot_interval_min', 0);
+    if (error) {
+      console.error('[processing] query snapshot berkala gagal:', error.message);
+      return;
+    }
+    const now = Date.now();
+    for (const row of data ?? []) {
+      const host = String(row.cctv_local_ip ?? '').trim();
+      const interval = Number(row.snapshot_interval_min);
+      const key = `${row.deployment_slug}:${row.device_id}`;
+      if (!host) continue;
+      if (!isSnapshotDue(row.last_snapshot_at as string | null, interval, now)) continue;
+      if (!isSnapshotDue(lastSnapshotAttempt.get(key), interval, now)) continue;
+      lastSnapshotAttempt.set(key, now);
+      const path = await captureSnapshot({
+        host,
+        deploymentSlug: row.deployment_slug as string,
+        deviceId: row.device_id as string,
+      });
+      if (path) console.log(`[processing] snapshot berkala OK — device=${row.device_id}`);
+    }
+  } finally {
+    snapshotTickRunning = false;
+  }
+}
+
+setInterval(() => {
+  void runPeriodicSnapshots();
+}, SNAPSHOT_TICK_MS);
 
 setInterval(() => {
   console.log('[processing] metrics', JSON.stringify(metrics));
