@@ -242,6 +242,18 @@ Pakai `node:test` + `tsx` (tanpa framework baru):
 - **Broker di compose VPS (mosquitto)**: broker lama 72.62.125.210 tidak
   dipakai.
 
+## Keputusan tambahan (2026-10-01, setelah spec disetujui)
+
+- **Snapshot berkala**: default tiap **15 menit**, interval diatur admin per
+  device (`device_configs.snapshot_interval_min`, 0 = mati). Snapshot di tiap
+  kejadian notifikasi dan tombol manual admin tetap ada.
+- **Foto terbaru per device** disimpan di `device_configs.last_snapshot_path/at`
+  (diisi semua jenis snapshot) — memperbaiki dashboard yang sebelumnya
+  mengambil foto dari reading terbaru (hilang 1 menit setelah alarm).
+- **Timestamp di gambar** via OSD bawaan kamera Hikvision + NTP (tanpa kode).
+- **Foto lama dibiarkan dulu** (tidak dihapus otomatis). Fitur berikutnya:
+  hapus foto Storage berdasarkan rentang waktu tertentu.
+
 ## Out of scope
 
 - Rekaman/playback video (NVR), deteksi objek/AI.

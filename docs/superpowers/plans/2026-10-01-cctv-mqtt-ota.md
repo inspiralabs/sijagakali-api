@@ -1223,6 +1223,7 @@ Kerjakan di `../sijagakali-app`. Mulai dengan `rtk git checkout -b feat/cctv-hls
 **Files:**
 - Create: `src/components/HlsPlayer.tsx`, `src/components/HlsPlayer.test.tsx`
 - Modify: `package.json` (dep `hls.js`), `src/components/CctvPanel.tsx` (`renderLiveBody`), `src/components/DeviceCard.tsx` (`CctvLiveStream`), `src/pages/DeviceSettings.tsx` (kartu CCTV)
+- Modify (dari Task 11): `src/lib/types.ts` (`Device.snapshotIntervalMin`), `src/lib/sijagakali/fetchDashboard.ts` (foto terbaru dari `device_configs`), `src/lib/liveDataContext.tsx` (foto tidak ditimpa null + realtime UPDATE `device_configs`)
 
 **Interfaces:**
 - Consumes: `POST {VITE_SIJAGAKALIAPI_URL}/api/cctv/:deviceId/snapshot` → `{ path, signedUrl }` (Task 4); `device.cctvUrl` (= `stream_playback_url`).
@@ -1495,6 +1496,145 @@ Expected: PASS, 5 test.
             )}
           </div>
   ```
+
+- [ ] **Step 7b: Foto terbaru dari `device_configs` (Task 11)**
+
+Kolom baru (Task 11): `device_configs.snapshot_interval_min`, `last_snapshot_path`, `last_snapshot_at`; `device_configs` sudah di publication Realtime.
+
+`src/lib/types.ts` — di interface `Device` (dekat `cctvCapturedAt`), tambahkan:
+
+```ts
+  /** Menit antar snapshot CCTV berkala; 0 = mati. */
+  snapshotIntervalMin?: number;
+```
+
+`src/lib/sijagakali/fetchDashboard.ts`:
+1. Tambahkan konstanta setelah `DEVICE_CONFIGS_SELECT_FULL`:
+   ```ts
+   const DEVICE_CONFIGS_SELECT_WITH_SNAPSHOT =
+     `${DEVICE_CONFIGS_SELECT_FULL}, snapshot_interval_min, last_snapshot_path, last_snapshot_at`;
+   ```
+2. `DeviceConfigRow`: tambahkan `snapshot_interval_min?: number | null; last_snapshot_path?: string | null; last_snapshot_at?: string | null;`.
+3. Di `fetchDashboardSnapshot`, query pertama pakai `DEVICE_CONFIGS_SELECT_WITH_SNAPSHOT`; tambahkan satu langkah fallback **sebelum** fallback `geoOnly` yang sudah ada:
+   ```ts
+   // Kompatibilitas: DB belum menjalankan migrasi snapshot (Task 11).
+   if (isMissingColumnError(errConfigs)) {
+     const full = await supabase
+       .from('device_configs')
+       .select(DEVICE_CONFIGS_SELECT_FULL)
+       .eq('deployment_slug', deploymentSlug)
+       .eq('is_active', true)
+       .order('device_id');
+     configs = full.data;
+     errConfigs = full.error;
+   }
+   ```
+4. Di pemetaan device, ganti:
+   ```ts
+    cctvImagePath: latest?.cctv_image_path ?? null,
+    cctvCapturedAt: latest?.cctv_captured_at ?? null,
+   ```
+   dengan:
+   ```ts
+    // Foto terbaru per device (kejadian/berkala/manual); fallback ke reading lama.
+    cctvImagePath: c.last_snapshot_path ?? latest?.cctv_image_path ?? null,
+    cctvCapturedAt: c.last_snapshot_at ?? latest?.cctv_captured_at ?? null,
+    snapshotIntervalMin: c.snapshot_interval_min ?? 15,
+   ```
+
+`src/lib/liveDataContext.tsx`:
+1. Di handler INSERT `sensor_readings`, **kedua** tempat yang menulis `cctvImagePath,` / `cctvCapturedAt,` ke objek device diganti menjadi:
+   ```ts
+                  cctvImagePath: cctvImagePath ?? d.cctvImagePath,
+                  cctvCapturedAt: cctvCapturedAt ?? d.cctvCapturedAt,
+   ```
+   dan `cctvSignedUrl: null` di kedua tempat itu diganti `cctvSignedUrl: cctvImagePath ? null : d.cctvSignedUrl` (reading tanpa foto tidak boleh mengosongkan foto terakhir).
+2. Pada channel yang sama (`supabase.channel('sensor_readings_inserts')`), rangkaikan `.on(...)` kedua tepat setelah `.on(...)` INSERT dan sebelum `.subscribe(...)`:
+   ```ts
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'sijagakali',
+          table: 'device_configs',
+          filter: `deployment_slug=eq.${deploymentSlug}`,
+        },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>;
+          const path = (row.last_snapshot_path as string | null) ?? null;
+          if (!path) return;
+          const deviceId = String(row.device_id ?? '');
+          setDevices((prev) =>
+            prev.map((d) =>
+              d.id === deviceId && d.cctvImagePath !== path
+                ? {
+                    ...d,
+                    cctvImagePath: path,
+                    cctvCapturedAt: (row.last_snapshot_at as string | null) ?? d.cctvCapturedAt,
+                    cctvSignedUrl: null,
+                  }
+                : d
+            )
+          );
+        }
+      )
+   ```
+
+`src/pages/DeviceSettings.tsx` — interval snapshot berkala di kartu CCTV:
+1. State (di bawah state snapshot dari Step 7):
+   ```tsx
+   const [snapshotInterval, setSnapshotInterval] = useState('15');
+   const [snapshotIntervalSaving, setSnapshotIntervalSaving] = useState(false);
+   ```
+2. Di `useEffect` yang mengisi form dari `device` (yang berisi `setBmkgAdm4(...)`), tambahkan:
+   `setSnapshotInterval(String(device.snapshotIntervalMin ?? 15));`
+3. Handler:
+   ```tsx
+   const handleSnapshotIntervalSave = async () => {
+     const n = Number(snapshotInterval);
+     if (!Number.isInteger(n) || n < 0 || n > 1440) {
+       toast.error('Interval snapshot harus bilangan bulat 0–1440 menit (0 = mati)');
+       return;
+     }
+     setSnapshotIntervalSaving(true);
+     try {
+       const res = await fetch(`${API_BASE}/api/device/${device.id}/settings`, {
+         method: 'POST',
+         headers: authHeaders(),
+         body: JSON.stringify({ deployment_slug: device.deploymentSlug, snapshot_interval_min: n }),
+       });
+       if (!res.ok) {
+         const body = (await res.json()) as { error?: string };
+         throw new Error(body.error ?? 'Gagal menyimpan interval snapshot');
+       }
+       await refreshDashboard();
+       toast.success(n === 0 ? 'Snapshot berkala dimatikan' : `Snapshot berkala tiap ${n} menit`);
+     } catch (err) {
+       toast.error(err instanceof Error ? err.message : String(err));
+     } finally {
+       setSnapshotIntervalSaving(false);
+     }
+   };
+   ```
+4. Di blok `<div className="mt-4 space-y-2 border-t border-border pt-4">` dari Step 7, sebelum tombol "Ambil snapshot", tambahkan:
+   ```tsx
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Snapshot berkala (menit, 0 = mati)
+            </label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={0}
+                max={1440}
+                value={snapshotInterval}
+                onChange={(e) => setSnapshotInterval(e.target.value)}
+                className="w-28"
+              />
+              <Button type="button" variant="outline" disabled={snapshotIntervalSaving} onClick={handleSnapshotIntervalSave}>
+                {snapshotIntervalSaving ? 'Menyimpan...' : 'Simpan interval'}
+              </Button>
+            </div>
+   ```
 
 - [ ] **Step 8: Test & build seluruh app**
 
@@ -1866,6 +2006,230 @@ Kerjakan `deploy/e2e-checklist.md` berurutan, isi kolom Hasil. Bila #1 gagal kon
 ```bash
 rtk git add deploy/e2e-checklist.md
 rtk git commit -m "docs: record end-to-end test results
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 11: Snapshot berkala (interval diatur admin) + "foto terbaru" per device
+
+> Ditambahkan 2026-10-01 atas keputusan user: snapshot berkala tiap 15 menit (interval bisa diatur admin per device), tetap snapshot di tiap kejadian, tombol manual tetap. **Dieksekusi setelah Task 6, sebelum Task 7** (Task 7 memakai kolom yang dibuat di sini).
+>
+> Sekaligus memperbaiki bug: dashboard mengambil foto dari *baris sensor terbaru*; dengan pembacaan tiap 1 menit, foto alarm hilang dari dashboard 1 menit kemudian. Sumber "foto terbaru" dipindah ke `device_configs.last_snapshot_path/at`, yang diisi oleh **setiap** snapshot (kejadian, berkala, manual) lewat `captureSnapshot`.
+
+**Files:**
+- Create: `supabase/migrations/20261001120000_device_configs_snapshot.sql`
+- Create: `shared/src/snapshotSchedule.ts`, `shared/src/snapshotSchedule.test.ts`
+- Modify: `shared/src/cctvSnapshot.ts` (update `device_configs` setelah upload), `shared/src/index.ts`, `supabase/README.md`
+- Modify: `data-processing/src/index.ts` (loop snapshot berkala)
+- Modify: `api/src/routes/device.ts` (`POST /api/device/:deviceId/settings` menerima `snapshot_interval_min`)
+
+**Interfaces:**
+- Consumes: `captureSnapshot` (Task 3), `getSupabase()`.
+- Produces:
+  - Kolom `device_configs.snapshot_interval_min integer NOT NULL DEFAULT 15` (0 = mati, maks 1440), `last_snapshot_path text`, `last_snapshot_at timestamptz`; `device_configs` masuk publication `supabase_realtime`.
+  - `isSnapshotDue(lastAt: string | number | null | undefined, intervalMin: number, now?: number): boolean`
+  - `captureSnapshot` kini juga meng-update `device_configs.last_snapshot_path/at` (signature tetap).
+  - Settings endpoint menerima `snapshot_interval_min` (int 0–1440). Dipakai Task 7.
+
+- [ ] **Step 1: Migrasi**
+
+Create `supabase/migrations/20261001120000_device_configs_snapshot.sql`:
+
+```sql
+-- Snapshot CCTV: interval berkala per device (diatur admin) + foto terbaru untuk dashboard.
+ALTER TABLE sijagakali.device_configs
+  ADD COLUMN IF NOT EXISTS snapshot_interval_min integer NOT NULL DEFAULT 15
+    CHECK (snapshot_interval_min >= 0 AND snapshot_interval_min <= 1440),
+  ADD COLUMN IF NOT EXISTS last_snapshot_path text,
+  ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz;
+
+COMMENT ON COLUMN sijagakali.device_configs.snapshot_interval_min IS
+  'Menit antar snapshot berkala CCTV; 0 = mati. Snapshot kejadian & manual tetap jalan.';
+
+-- Dashboard menerima foto terbaru secara realtime (UPDATE device_configs).
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE sijagakali.device_configs;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+```
+
+Tambahkan baris di tabel `supabase/README.md` bagian "Isi folder":
+
+```
+| `migrations/20261001120000_device_configs_snapshot.sql` | Kolom `snapshot_interval_min`, `last_snapshot_path`, `last_snapshot_at` + `device_configs` ke Realtime (snapshot CCTV berkala) |
+```
+
+- [ ] **Step 2: Tulis test yang gagal**
+
+Create `shared/src/snapshotSchedule.test.ts`:
+
+```ts
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { isSnapshotDue } from './snapshotSchedule.js';
+
+const NOW = Date.parse('2026-10-01T10:00:00Z');
+const minAgo = (m: number) => new Date(NOW - m * 60_000).toISOString();
+
+test('never snapshotted → due', () => {
+  assert.equal(isSnapshotDue(null, 15, NOW), true);
+  assert.equal(isSnapshotDue(undefined, 15, NOW), true);
+});
+
+test('interval 0 or negative → never due (periodic off)', () => {
+  assert.equal(isSnapshotDue(null, 0, NOW), false);
+  assert.equal(isSnapshotDue(minAgo(999), -5, NOW), false);
+});
+
+test('due exactly at interval, not before', () => {
+  assert.equal(isSnapshotDue(minAgo(14), 15, NOW), false);
+  assert.equal(isSnapshotDue(minAgo(15), 15, NOW), true);
+  assert.equal(isSnapshotDue(minAgo(60), 15, NOW), true);
+});
+
+test('accepts epoch ms', () => {
+  assert.equal(isSnapshotDue(NOW - 5 * 60_000, 15, NOW), false);
+  assert.equal(isSnapshotDue(NOW - 15 * 60_000, 15, NOW), true);
+});
+
+test('unparseable timestamp → due (self-heal)', () => {
+  assert.equal(isSnapshotDue('bukan-tanggal', 15, NOW), true);
+});
+```
+
+- [ ] **Step 3: Jalankan, pastikan gagal**
+
+Run: `npm test`
+Expected: FAIL — `Cannot find module '.../snapshotSchedule.js'`.
+
+- [ ] **Step 4: Implementasi**
+
+Create `shared/src/snapshotSchedule.ts`:
+
+```ts
+/**
+ * Apakah snapshot berkala sudah jatuh tempo?
+ * `lastAt` = ISO string (kolom DB) atau epoch ms; null/tidak valid → langsung tempo.
+ * `intervalMin` ≤ 0 → snapshot berkala mati.
+ */
+export function isSnapshotDue(
+  lastAt: string | number | null | undefined,
+  intervalMin: number,
+  now = Date.now()
+): boolean {
+  if (!(intervalMin > 0)) return false;
+  if (lastAt == null) return true;
+  const last = typeof lastAt === 'number' ? lastAt : Date.parse(lastAt);
+  if (!Number.isFinite(last)) return true;
+  return now - last >= intervalMin * 60_000;
+}
+```
+
+`shared/src/index.ts` — tambahkan `export * from './snapshotSchedule.js';`.
+
+`shared/src/cctvSnapshot.ts` — tambahkan `getSupabase` ke import dari `./supabaseClient.js`, lalu tepat sebelum `return path;` tambahkan:
+
+```ts
+    // Satu sumber "foto terbaru" untuk dashboard + jam terakhir snapshot (dasar jadwal berkala).
+    const { error: cfgErr } = await getSupabase()
+      .from('device_configs')
+      .update({ last_snapshot_path: path, last_snapshot_at: new Date().toISOString() })
+      .eq('deployment_slug', opts.deploymentSlug)
+      .eq('device_id', opts.deviceId);
+    if (cfgErr) console.error('[cctv_snapshot] UPDATE device_configs.last_snapshot gagal:', cfgErr.message);
+```
+
+(Gagal update tidak membatalkan path — foto sudah di Storage dan tetap dipakai notifikasi.)
+
+- [ ] **Step 5: Jalankan test, pastikan lulus**
+
+Run: `npm test`
+Expected: PASS (semua test lama + 5 test baru).
+
+- [ ] **Step 6: Loop snapshot berkala di data-processing**
+
+`data-processing/src/index.ts` — tambahkan `isSnapshotDue,` ke import `@sijagakali/shared` (`captureSnapshot` sudah diimport di Task 4). Tambahkan sebelum blok `setInterval(() => { console.log('[processing] metrics' ...`:
+
+```ts
+/** Cek jadwal snapshot berkala tiap menit; interval per device diatur admin (snapshot_interval_min). */
+const SNAPSHOT_TICK_MS = 60_000;
+/** Percobaan terakhir per device (termasuk yang gagal) — kamera mati tidak dicoba ulang tiap menit. */
+const lastSnapshotAttempt = new Map<string, number>();
+let snapshotTickRunning = false;
+
+async function runPeriodicSnapshots() {
+  if (snapshotTickRunning) return;
+  snapshotTickRunning = true;
+  try {
+    const { data, error } = await supabase
+      .from('device_configs')
+      .select('deployment_slug,device_id,cctv_local_ip,snapshot_interval_min,last_snapshot_at')
+      .eq('is_active', true)
+      .not('cctv_local_ip', 'is', null)
+      .gt('snapshot_interval_min', 0);
+    if (error) {
+      console.error('[processing] query snapshot berkala gagal:', error.message);
+      return;
+    }
+    const now = Date.now();
+    for (const row of data ?? []) {
+      const host = String(row.cctv_local_ip ?? '').trim();
+      const interval = Number(row.snapshot_interval_min);
+      const key = `${row.deployment_slug}:${row.device_id}`;
+      if (!host) continue;
+      if (!isSnapshotDue(row.last_snapshot_at as string | null, interval, now)) continue;
+      if (!isSnapshotDue(lastSnapshotAttempt.get(key), interval, now)) continue;
+      lastSnapshotAttempt.set(key, now);
+      const path = await captureSnapshot({
+        host,
+        deploymentSlug: row.deployment_slug as string,
+        deviceId: row.device_id as string,
+      });
+      if (path) console.log(`[processing] snapshot berkala OK — device=${row.device_id}`);
+    }
+  } finally {
+    snapshotTickRunning = false;
+  }
+}
+
+setInterval(() => {
+  void runPeriodicSnapshots();
+}, SNAPSHOT_TICK_MS);
+```
+
+Karena `last_snapshot_at` juga diisi snapshot kejadian & manual, foto berkala berikutnya otomatis mundur — tidak ada dua foto beruntun saat alarm.
+
+- [ ] **Step 7: Settings endpoint menerima `snapshot_interval_min`**
+
+`api/src/routes/device.ts`, route `POST /api/device/:deviceId/settings`:
+1. Body type: tambahkan `snapshot_interval_min?: number;`.
+2. Destrukturisasi `req.body`: tambahkan `snapshot_interval_min,`.
+3. Setelah validasi cooldown yang ada (`const cw = optionalNonnegInt(...)` dst.), tambahkan:
+   ```ts
+   const si = optionalNonnegInt(snapshot_interval_min, 'snapshot_interval_min', 1440);
+   if (!si.ok) return reply.code(400).send({ error: si.error });
+   ```
+4. Di blok pengisian `updates` (dekat `if (cw.value !== undefined) ...`), tambahkan:
+   ```ts
+   if (si.value !== undefined) updates.snapshot_interval_min = si.value;
+   ```
+
+- [ ] **Step 8: Build + test**
+
+Run: `npm run build && npm test`
+Expected: sukses, semua PASS.
+
+Verifikasi route terlindungi (API dev server, tanpa token): `curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:3100/api/device/node-001/settings -H "Content-Type: application/json" -d "{\"snapshot_interval_min\":-1}"` → `401`. Validasi 400 dan nilai tersimpan diuji di Task 10 dengan token admin.
+
+- [ ] **Step 9: Commit**
+
+```bash
+rtk git add supabase/migrations/20261001120000_device_configs_snapshot.sql supabase/README.md shared data-processing/src/index.ts api/src/routes/device.ts
+rtk git commit -m "feat: periodic CCTV snapshots with admin-configurable interval and per-device latest snapshot
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
