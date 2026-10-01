@@ -21,7 +21,7 @@ services:
     environment:
       FASTIFY_PORT: "3100"
       GATEWAY_URL: http://notification-gateway:3101
-      MQTT_BROKER_URL: mqtt://sijagakali-mosquitto:1883
+      MQTT_BROKER_URL: mqtt://mosquitto:1883   # broker infra bersama (alias di network edge)
     expose: ["3100"]
     labels:
       - traefik.enable=true
@@ -38,7 +38,7 @@ services:
     <<: *runtime
     command: ["node", "mqtt-collector/dist/index.js"]
     environment:
-      MQTT_BROKER_URL: mqtt://sijagakali-mosquitto:1883
+      MQTT_BROKER_URL: mqtt://mosquitto:1883   # broker infra bersama (alias di network edge)
     healthcheck:
       disable: true
 
@@ -74,26 +74,13 @@ services:
       retries: 3
       start_period: 60s
 
-  mosquitto:
-    image: eclipse-mosquitto:2
-    restart: unless-stopped
-    networks:
-      edge:
-        # network `edge` dipakai bersama project lain — alias unik agar tidak bentrok
-        aliases: [sijagakali-mosquitto]
-    volumes:
-      - ./deploy/mosquitto:/mosquitto/config:ro
-      - mosquitto-data:/mosquitto/data
-    expose: ["1883", "9001"]
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.sijagakali-mqtt.rule=Host(`mqtt-sijagakali.inspiralabs.id`)
-      - traefik.http.services.sijagakali-mqtt.loadbalancer.server.port=9001
-
   mediamtx:
     image: bluenviron/mediamtx:1
     restart: unless-stopped
     networks: [edge]
+    # image scratch tanpa shell/curl — tidak ada perintah healthcheck yang bisa dijalankan
+    healthcheck:
+      disable: true
     volumes:
       - ./deploy/mediamtx.yml:/mediamtx.yml:ro
     expose: ["8888"]
@@ -104,7 +91,6 @@ services:
 
 volumes:
   wa-session:
-  mosquitto-data:
 
 networks:
   edge:
