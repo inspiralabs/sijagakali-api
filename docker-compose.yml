@@ -4,6 +4,7 @@ x-app: &app
     - path: .env
       required: false
   restart: unless-stopped
+  init: true
   networks: [edge]
 
 x-runtime: &runtime
@@ -50,6 +51,7 @@ services:
       context: .
       target: runtime-wa
     image: sijagakali-api:wa
+    hostname: notification-gateway
     command: ["node", "notification-gateway/dist/index.js"]
     environment:
       GATEWAY_BIND: 0.0.0.0
