@@ -12,6 +12,7 @@ Semua tabel aplikasi berada di schema Postgres **`sijagakali`**. Multi-wilayah t
 | `migrations/20260211120000_device_configs_stream_playback_url.sql` | Tambah kolom **`stream_playback_url`** (live CCTV) pada DB yang sudah pernah di-init tanpa kolom ini |
 | `migrations/20260512100000_reinforce_anon_read_devices_readings.sql` | Pastikan role **`anon`** punya GRANT + policy SELECT untuk dashboard **`/public`** |
 | `migrations/20260512120000_authenticated_read_dashboard_tables.sql` | Policy SELECT role **`authenticated`** untuk `deployments`, `device_configs`, `sensor_readings` (dashboard admin setelah login) |
+| `migrations/20261001120000_device_configs_snapshot.sql` | Kolom `snapshot_interval_min`, `last_snapshot_path`, `last_snapshot_at` + `device_configs` ke Realtime (snapshot CCTV berkala) |
 
 ## Kenapa sempat “publik ada data, admin kosong”?
 

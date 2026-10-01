@@ -128,6 +128,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
       notify_surge_delta_cm?: number;
       notify_surge_window_min?: number;
       notify_digest_hours_local?: number[];
+      snapshot_interval_min?: number;
     };
   }>('/api/device/:deviceId/settings', { preHandler: requireAdmin }, async (req, reply) => {
     const { deviceId } = req.params;
@@ -151,6 +152,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
       notify_surge_delta_cm,
       notify_surge_window_min,
       notify_digest_hours_local,
+      snapshot_interval_min,
     } = req.body;
 
     const slug = deployment_slug ?? ENV.DEFAULT_DEPLOYMENT_SLUG;
@@ -161,6 +163,8 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
     if (!cs.ok) return reply.code(400).send({ error: cs.error });
     const cb = optionalNonnegInt(notify_cooldown_bahaya_sec, 'notify_cooldown_bahaya_sec', MAX_COOLDOWN_SEC);
     if (!cb.ok) return reply.code(400).send({ error: cb.error });
+    const si = optionalNonnegInt(snapshot_interval_min, 'snapshot_interval_min', 1440);
+    if (!si.ok) return reply.code(400).send({ error: si.error });
     const sd = optionalNonnegNumber(notify_surge_delta_cm, 'notify_surge_delta_cm', 5000);
     if (!sd.ok) return reply.code(400).send({ error: sd.error });
     const sw = optionalNonnegInt(notify_surge_window_min, 'notify_surge_window_min', 10_080);
@@ -241,6 +245,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
     if (cw.value !== undefined) updates.notify_cooldown_waspada_sec = cw.value;
     if (cs.value !== undefined) updates.notify_cooldown_siaga_sec = cs.value;
     if (cb.value !== undefined) updates.notify_cooldown_bahaya_sec = cb.value;
+    if (si.value !== undefined) updates.snapshot_interval_min = si.value;
     if (sd.value !== undefined) updates.notify_surge_delta_cm = sd.value;
     if (sw.value !== undefined) updates.notify_surge_window_min = sw.value;
     if (notify_digest_hours_local !== undefined && digestParsed && digestParsed.ok) {

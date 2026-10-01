@@ -49,4 +49,9 @@ export const ENV = {
   DISPATCH_DEBOUNCE_MS: optional_env_number('DISPATCH_DEBOUNCE_MS', 3_000),
   /** Min jarak UPDATE last_seen_at per device di mqtt-collector (ms). */
   LAST_SEEN_THROTTLE_MS: optional_env_number('LAST_SEEN_THROTTLE_MS', 5 * 60_000),
+  /** Kredensial kamera Hikvision (user khusus hak Live View). Dipakai snapshot ISAPI. */
+  CCTV_USERNAME: optional_env('CCTV_USERNAME'),
+  CCTV_PASSWORD: optional_env('CCTV_PASSWORD'),
+  /** Batas waktu ambil snapshot (ms) — internet lokasi 4G bisa lambat. */
+  CCTV_SNAPSHOT_TIMEOUT_MS: optional_env_number('CCTV_SNAPSHOT_TIMEOUT_MS', 8_000),
 };

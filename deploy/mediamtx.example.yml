@@ -1,0 +1,36 @@
+# Salin ke deploy/mediamtx.yml di VPS (file itu di-gitignore — berisi password kamera).
+# Hanya HLS yang aktif: tidak ada yang bisa publish ke server ini.
+logLevel: info
+api: no
+metrics: no
+pprof: no
+playback: no
+rtsp: no
+rtmp: no
+webrtc: no
+srt: no
+moq: no
+
+hls: yes
+hlsAddress: :8888
+hlsVariant: mpegts
+# Isi dengan origin dashboard (nilai ALLOWED_ORIGIN di .env), mis. https://sijagakali.example.id
+hlsAllowOrigins: ['https://GANTI-DENGAN-ORIGIN-DASHBOARD']
+
+# Live publik (keputusan desain): siapa pun boleh read, tidak ada publish.
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+        path:
+
+paths:
+  # Satu entri per kamera. Nama path = cam-{device_id}.
+  # Sub stream 102 (H.264, ±512 kbps) — main stream terlalu boros untuk kuota 4G.
+  cam-node-001:
+    source: rtsp://CCTV_USER:CCTV_PASS@192.168.1.64:554/Streaming/Channels/102
+    rtspTransport: tcp
+    sourceOnDemand: yes
+    sourceOnDemandCloseAfter: 10s

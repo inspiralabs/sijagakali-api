@@ -4,7 +4,9 @@ import {
   ENV,
   calcWaterStatus,
   computeSelisihCmAboveWaspada,
-  notifEmitter,
+  notifyGateway,
+  captureSnapshot,
+  isSnapshotDue,
   type NotificationEvent,
 } from '@sijagakali/shared';
 import { shouldNotify } from './notificationPolicy.js';
@@ -41,6 +43,7 @@ type DeviceConfigRow = {
   notify_cooldown_waspada_sec: number;
   notify_cooldown_siaga_sec: number;
   notify_cooldown_bahaya_sec: number;
+  cctv_local_ip: string | null;
 };
 
 /** Cache konfigurasi device, refresh setiap 5 menit */
@@ -87,7 +90,7 @@ async function getDeviceConfig(
   const { data, error } = await supabase
     .from('device_configs')
     .select(
-      'deployment_slug,device_id,location_name,display_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec'
+      'deployment_slug,device_id,location_name,display_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec,cctv_local_ip'
     )
     .eq('deployment_slug', deploymentSlug)
     .eq('device_id', deviceId)
@@ -207,6 +210,23 @@ async function tryDispatch(
   const notify = shouldNotify(slug, resolvedDeviceId, waterLevelCm, waterStatus, config);
   if (notify) {
     const dep = await getDeploymentNotifyRow(slug);
+    // Kamera IP (Hikvision via Tailscale): snapshot kejadian memakai main stream (101);
+    // snapshot berkala ada di loop terpisah (sub stream 102).
+    let cctvPath = cctvRow?.cctv_storage_path ?? null;
+    if (!cctvPath && config.cctv_local_ip) {
+      cctvPath = await captureSnapshot({
+        host: config.cctv_local_ip,
+        deploymentSlug: slug,
+        deviceId: resolvedDeviceId,
+      });
+      if (cctvPath) {
+        const { error: camErr } = await supabase
+          .from('sensor_readings')
+          .update({ cctv_image_path: cctvPath, cctv_captured_at: new Date().toISOString() })
+          .eq('id', reading.id);
+        if (camErr) console.error('[processing] UPDATE cctv_image_path gagal:', camErr.message);
+      }
+    }
     const selisih_cm = computeSelisihCmAboveWaspada(waterLevelCm, config.threshold_waspada_cm);
     const event: NotificationEvent = {
       reading_id: reading.id as string,
@@ -216,7 +236,7 @@ async function tryDispatch(
       device_display_name: config.display_name,
       water_level_cm: waterLevelCm,
       water_status: waterStatus,
-      cctv_image_path: cctvRow?.cctv_storage_path ?? null,
+      cctv_image_path: cctvPath,
       recorded_at: recordedAt,
       deployment_display_name: dep?.display_name ?? slug,
       read_interval_sec: config.read_interval_sec,
@@ -228,9 +248,9 @@ async function tryDispatch(
       contact_bpbd: dep?.contact_bpbd ?? null,
       contact_posko: dep?.contact_posko ?? null,
     };
-    notifEmitter.emit('notify', event);
+    const sent = await notifyGateway(ENV.GATEWAY_URL, event);
     console.log(
-      `[processing] notif event emitted for device=${resolvedDeviceId} status=${waterStatus}`
+      `[processing] notif ${sent ? 'dikirim ke gateway' : 'GAGAL dikirim ke gateway'} — device=${resolvedDeviceId} status=${waterStatus}`
     );
   }
 
@@ -350,6 +370,52 @@ function startRealtime() {
       }
     });
 }
+
+/** Cek jadwal snapshot berkala tiap menit; interval per device diatur admin (snapshot_interval_min). */
+const SNAPSHOT_TICK_MS = 60_000;
+/** Percobaan terakhir per device (termasuk yang gagal) — kamera mati tidak dicoba ulang tiap menit. */
+const lastSnapshotAttempt = new Map<string, number>();
+let snapshotTickRunning = false;
+
+async function runPeriodicSnapshots() {
+  if (snapshotTickRunning) return;
+  snapshotTickRunning = true;
+  try {
+    const { data, error } = await supabase
+      .from('device_configs')
+      .select('deployment_slug,device_id,cctv_local_ip,snapshot_interval_min,last_snapshot_at')
+      .eq('is_active', true)
+      .not('cctv_local_ip', 'is', null)
+      .gt('snapshot_interval_min', 0);
+    if (error) {
+      console.error('[processing] query snapshot berkala gagal:', error.message);
+      return;
+    }
+    const now = Date.now();
+    for (const row of data ?? []) {
+      const host = String(row.cctv_local_ip ?? '').trim();
+      const interval = Number(row.snapshot_interval_min);
+      const key = `${row.deployment_slug}:${row.device_id}`;
+      if (!host) continue;
+      if (!isSnapshotDue(row.last_snapshot_at as string | null, interval, now)) continue;
+      if (!isSnapshotDue(lastSnapshotAttempt.get(key), interval, now)) continue;
+      lastSnapshotAttempt.set(key, now);
+      const path = await captureSnapshot({
+        host,
+        deploymentSlug: row.deployment_slug as string,
+        deviceId: row.device_id as string,
+        channel: 102, // sub stream: berkala harus kecil (hemat Storage)
+      });
+      if (path) console.log(`[processing] snapshot berkala OK — device=${row.device_id}`);
+    }
+  } finally {
+    snapshotTickRunning = false;
+  }
+}
+
+setInterval(() => {
+  void runPeriodicSnapshots();
+}, SNAPSHOT_TICK_MS);
 
 setInterval(() => {
   console.log('[processing] metrics', JSON.stringify(metrics));

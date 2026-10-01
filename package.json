@@ -22,7 +22,8 @@
     "start:processing": "npm -w data-processing run start",
     "start:notification": "npm -w notification-gateway run start",
     "start:api": "npm -w api run start",
-    "build:start": "npm run build && npm run start"
+    "build:start": "npm run build && npm run start",
+    "test": "node --import tsx --test \"shared/src/**/*.test.ts\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
