@@ -245,6 +245,13 @@ Pakai `node:test` + `tsx` (tanpa framework baru):
 
 ## Keputusan tambahan (2026-10-01, setelah spec disetujui)
 
+- **Broker = mosquitto infra bersama di VPS** (`/opt/server-setup/infra`, alias
+  `mosquitto` di network `edge`, TLS publik `mqtts://mqtt.inspiralabs.id:8883`,
+  sertifikat Let's Encrypt). Ditemukan saat deploy; menggantikan bagian B
+  (mosquitto per-app + WebSocket via Traefik), yang dihapus. Akun device via
+  `sudo /opt/server-setup/bin/mqtt-user.sh add <device_id>`; ACL per arah untuk
+  `sijagakali/%u/...` ditambahkan ke `/srv/infra/mosquitto/auth/acl`.
+
 - **Snapshot berkala**: default tiap **15 menit**, interval diatur admin per
   device (`device_configs.snapshot_interval_min`, 0 = mati). Snapshot di tiap
   kejadian notifikasi dan tombol manual admin tetap ada.

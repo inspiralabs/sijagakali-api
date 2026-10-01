@@ -1,3 +1,2 @@
-deploy/mosquitto/* text eol=lf
 
 deploy/*.yml text eol=lf
