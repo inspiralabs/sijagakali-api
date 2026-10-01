@@ -42,6 +42,8 @@ services:
   data-processing:
     <<: *runtime
     command: ["node", "data-processing/dist/index.js"]
+    environment:
+      GATEWAY_URL: http://notification-gateway:3101
     healthcheck:
       disable: true
 

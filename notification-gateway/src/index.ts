@@ -5,8 +5,8 @@ import {
   getSupabaseStorage,
   getSupabase,
   ENV,
-  notifEmitter,
   type NotificationEvent,
+  parseNotificationEvent,
   type DeploymentWaRow,
   formatWaMessage,
   buildSyntheticNotificationEvent,
@@ -136,12 +136,6 @@ async function processNotification(event: NotificationEvent) {
   }
 }
 
-notifEmitter.on('notify', (event: NotificationEvent) => {
-  processNotification(event).catch((err) => {
-    console.error('[notification-gateway] processNotification unhandled:', err);
-  });
-});
-
 const VALID_STATUS = new Set(['normal', 'waspada', 'siaga', 'bahaya']);
 
 interface SendTestBody {
@@ -237,6 +231,15 @@ gatewayApp.post<{ Body: { deployment_slug: string } }>('/invalidate-template', a
     console.log(`[notification-gateway] Cache template di-invalidate untuk slug: ${deployment_slug}`);
   }
   return reply.send({ ok: true });
+});
+
+gatewayApp.post('/notify', async (req, reply) => {
+  const event = parseNotificationEvent(req.body);
+  if (!event) return reply.code(400).send({ error: 'NotificationEvent tidak valid' });
+  processNotification(event).catch((err) => {
+    console.error('[notification-gateway] processNotification unhandled:', err);
+  });
+  return reply.code(202).send({ ok: true });
 });
 
 gatewayApp.get('/health', async () => ({ ok: true }));

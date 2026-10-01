@@ -5,7 +5,7 @@ export * from './types.js';
 export * from './waMessageFormat.js';
 export * from './waBuiltinTemplates.js';
 export * from './cctvSignedUrl.js';
-export { notifEmitter } from './notifEmitter.js';
+export * from './notifyGateway.js';
 export * from './bmkg/types.js';
 export {
   BMKG_ADM4_RE,

@@ -4,7 +4,7 @@ import {
   ENV,
   calcWaterStatus,
   computeSelisihCmAboveWaspada,
-  notifEmitter,
+  notifyGateway,
   type NotificationEvent,
 } from '@sijagakali/shared';
 import { shouldNotify } from './notificationPolicy.js';
@@ -228,9 +228,9 @@ async function tryDispatch(
       contact_bpbd: dep?.contact_bpbd ?? null,
       contact_posko: dep?.contact_posko ?? null,
     };
-    notifEmitter.emit('notify', event);
+    const sent = await notifyGateway(ENV.GATEWAY_URL, event);
     console.log(
-      `[processing] notif event emitted for device=${resolvedDeviceId} status=${waterStatus}`
+      `[processing] notif ${sent ? 'dikirim ke gateway' : 'GAGAL dikirim ke gateway'} — device=${resolvedDeviceId} status=${waterStatus}`
     );
   }
 
