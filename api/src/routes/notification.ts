@@ -125,7 +125,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, deps: Rou
 
     if (send) {
       try {
-        const gatewayUrl = `http://127.0.0.1:${ENV.GATEWAY_HTTP_PORT}/send-test`;
+        const gatewayUrl = `${ENV.GATEWAY_URL}/send-test`;
         const body = JSON.stringify({
           device_id,
           deployment_slug: slug,

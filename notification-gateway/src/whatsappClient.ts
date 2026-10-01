@@ -1,4 +1,6 @@
 import { createRequire } from 'module';
+import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { ENV } from '@sijagakali/shared';
 
 // whatsapp-web.js adalah CommonJS — harus di-require, bukan di-import langsung
@@ -19,8 +21,21 @@ export async function getWhatsAppClient(): Promise<WaClient> {
     process.env.CHROME_PATH?.trim() ||
     undefined;
 
+  // Kunci profil Chromium bertahan setelah SIGKILL; container baru (hostname beda) menolak
+  // profil itu ("in use by another computer"). Hapus sebelum start.
+  if (process.env.WA_SESSION_DIR) {
+    const profileDir = join(process.env.WA_SESSION_DIR, 'session-sijagakali-gateway');
+    for (const f of ['SingletonLock', 'SingletonCookie', 'SingletonSocket']) {
+      rmSync(join(profileDir, f), { force: true });
+    }
+  }
+
   _client = new Client({
-    authStrategy: new LocalAuth({ clientId: 'sijagakali-gateway' }),
+    authStrategy: new LocalAuth({
+      clientId: 'sijagakali-gateway',
+      // Docker: sesi disimpan di volume (WA_SESSION_DIR) supaya tidak scan QR ulang tiap deploy.
+      ...(process.env.WA_SESSION_DIR ? { dataPath: process.env.WA_SESSION_DIR } : {}),
+    }),
     puppeteer: {
       headless: true,
       ...(chromePath ? { executablePath: chromePath } : {}),
