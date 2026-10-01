@@ -46,7 +46,7 @@ Hikvision ──LAN── Raspberry Pi               mediamtx ──HLS──▶
                   (Tailscale subnet ◀─tailnet─▶ │ tarik RTSP ch.102 hanya saat ada penonton
                    router)                       │
 ESP32 ──4G── wss://mqtt-sijagakali.inspiralabs.id ─▶ Traefik ─▶ mosquitto:9001
-                                                 mosquitto:1883 ◀── mqtt-collector, api, sijagakali-ota
+                                                 sijagakali-mosquitto:1883 ◀── mqtt-collector, api, sijagakali-ota
                                                  mqtt-collector → data-processing
                                                      │ shouldNotify() = true
                                                      ├─ captureSnapshot() ──ISAPI (tailnet)──▶ kamera
@@ -72,9 +72,10 @@ Banyak penonton = satu tarikan dari lokasi (MediaMTX fan-out). Penonton
 
 - **Hapus** `shared/src/notifEmitter.ts` dan ekspornya.
 - **Baru** `shared/src/notifyGateway.ts`:
-  `notifyGateway(event: NotificationEvent): Promise<boolean>` →
-  `POST ${ENV.GATEWAY_URL}/notify` (JSON), timeout 10 s, `false` + log
-  bila gagal (tidak throw).
+  `notifyGateway(gatewayUrl, event, timeoutMs = 10_000): Promise<boolean>` →
+  `POST {gatewayUrl}/notify` (JSON; pemanggil memberi `ENV.GATEWAY_URL`),
+  `false` + log bila gagal (tidak throw), dan
+  `parseNotificationEvent(body)` untuk validasi di gateway.
 - `data-processing/src/index.ts`: ganti `notifEmitter.emit` dengan
   `await notifyGateway(event)`. Reading tetap tersimpan walau gateway mati.
 - `notification-gateway/src/index.ts`: `POST /notify` → validasi minimal
@@ -90,9 +91,12 @@ Banyak penonton = satu tarikan dari lokasi (MediaMTX fan-out). Penonton
   - listener `9001` (websockets) — Traefik router
     `Host(mqtt-sijagakali.inspiralabs.id)` → TLS diterminasi Traefik.
   - `allow_anonymous false`, `password_file`, `acl_file`, volume
-    `mosquitto-data` (persistence) + bind `deploy/mosquitto/`.
+    `mosquitto-data` (persistence + pwfile) + bind `deploy/mosquitto/`.
+  - Alias jaringan `sijagakali-mosquitto` (network `edge` dipakai bersama
+    project lain; nama service `mosquitto` bisa bentrok).
 - `deploy/mosquitto/mosquitto.conf` + `deploy/mosquitto/acl` (pwfile
-  **tidak** di-commit; dibuat di VPS dengan `mosquitto_passwd`).
+  **tidak** di-commit; dibuat di VPS dengan `mosquitto_passwd` ke
+  `/mosquitto/data/pwfile`).
 - ACL diperketat per arah:
   ```
   user sijagakali-backend
@@ -104,48 +108,51 @@ Banyak penonton = satu tarikan dari lokasi (MediaMTX fan-out). Penonton
   pattern read  sijagakali/%u/command
   pattern read  sijagakali/%u/config/#
   ```
-- `.env` VPS: `MQTT_BROKER_URL=mqtt://mosquitto:1883`,
+- `.env` VPS: `MQTT_BROKER_URL=mqtt://sijagakali-mosquitto:1883`,
   `MQTT_USERNAME=sijagakali-backend`.
 - Firmware: `MQTT_BROKER_URI "wss://mqtt-sijagakali.inspiralabs.id/mqtt"`
   (satu baris; kredensial device tetap di `main.cpp` seperti sekarang).
 
 ### C. CCTV
 
-- **Migrasi** `supabase/migrations/20261001120000_device_configs_cctv_host.sql`:
-  `ALTER TABLE sijagakali.device_configs ADD COLUMN IF NOT EXISTS cctv_host text;`
+- **Tanpa migrasi**: kolom `device_configs.cctv_local_ip` sudah ada (init
+  migration) dan sudah bisa diisi dari form CCTV di `DeviceSettings`
+  dashboard serta `device.ts` create/patch — dipakai sebagai host kamera.
 - **Env** (`shared/src/env.ts`): `CCTV_USERNAME`, `CCTV_PASSWORD`,
   `CCTV_SNAPSHOT_TIMEOUT_MS` (default 8000).
-- **`shared/src/cctvSnapshot.ts`**:
-  - `cctvStoragePath(slug, deviceId, now): string` →
+- **`shared/src/cctvSignedUrl.ts`** (helper Storage CCTV yang sudah ada):
+  `cctvStoragePath(slug, deviceId, now): string` →
     `{slug}/{deviceId}/{YYYY-MM-DD}/{unix_ts}_{deviceId}.jpg` (format yang
     sudah dipakai collector; collector ikut memakai fungsi ini).
-  - `fetchHikvisionSnapshot(host): Promise<Buffer>` →
+- **`shared/src/hikvision.ts`** (tanpa import `ENV`, agar bisa dites):
+  - `fetchHikvisionSnapshot(host, { username, password, timeoutMs }): Promise<Buffer>` →
     `GET http://{host}/ISAPI/Streaming/channels/101/picture` dengan HTTP
     Digest auth (implementasi sendiri pakai `node:crypto`, tanpa dependensi
     baru), timeout dari env, tolak bila `content-type` bukan `image/jpeg`.
+- **`shared/src/cctvSnapshot.ts`**:
   - `captureSnapshot({ host, deploymentSlug, deviceId }): Promise<string | null>`
     → fetch → upload ke bucket → kembalikan path; `null` + log
     `cctv_snapshot_failed` bila gagal di langkah mana pun.
-- **data-processing**: `getDeviceConfig` ikut select `cctv_host`. Bila
-  `notify` true, `cctv_host` ada, dan tidak ada `cctvRow` dari MQTT →
+- **data-processing**: `getDeviceConfig` ikut select `cctv_local_ip`. Bila
+  `notify` true, `cctv_local_ip` ada, dan tidak ada `cctvRow` dari MQTT →
   `captureSnapshot` → `UPDATE sensor_readings SET cctv_image_path, cctv_captured_at`
   → path masuk `event.cctv_image_path`.
 - **api**:
   - `POST /api/cctv/:deviceId/snapshot` (admin, body `deployment_slug?`) →
     `captureSnapshot` → `{ path, signedUrl }`; `502` bila kamera gagal,
-    `404` bila device tidak punya `cctv_host`.
-  - `device.ts` create/patch menerima `cctv_host` (string trim, kosong → null).
-- **MediaMTX** (`bluenviron/mediamtx`), `deploy/mediamtx.yml`:
+    `404` bila device tidak punya `cctv_local_ip`.
+- **MediaMTX** (`bluenviron/mediamtx:1`), `deploy/mediamtx.yml` (dibuat di
+  VPS dari `deploy/mediamtx.example.yml`, di-gitignore karena berisi
+  kredensial kamera):
   - `rtsp: no`, `rtmp: no`, `webrtc: no`, `srt: no`, `api: no`, `hls: yes`,
-    `hlsVariant: mpegts` (paling kompatibel), `hlsAllowOrigin` = origin
+    `hlsVariant: mpegts` (paling kompatibel), `hlsAllowOrigins` = origin
     dashboard.
   - `authInternalUsers`: user `any` hanya `read` (publik, sesuai keputusan);
     tidak ada `publish`.
   - Path statis per kamera: `cam-{device_id}` →
-    `source: rtsp://{user}:{pass}@{cctv_host}:554/Streaming/Channels/102`,
+    `source: rtsp://{user}:{pass}@{cctv_local_ip}:554/Streaming/Channels/102`,
     `rtspTransport: tcp`, `sourceOnDemand: yes`,
-    `sourceOnDemandCloseAfter: 10s`. Kredensial lewat env
-    (`MTX_PATHS_CAM_..._SOURCE`), bukan di file ter-commit.
+    `sourceOnDemandCloseAfter: 10s`.
   - Traefik: `Host(cctv-sijagakali.inspiralabs.id)` → port 8888.
   - `stream_playback_url` device diisi
     `https://cctv-sijagakali.inspiralabs.id/cam-{device_id}/index.m3u8`.
@@ -163,7 +170,7 @@ Banyak penonton = satu tarikan dari lokasi (MediaMTX fan-out). Penonton
 - **sijagakali-app** (repo terpisah): komponen player `hls.js` di kartu
   device — tombol Play (tidak autoplay), auto-stop setelah 5 menit dengan
   tombol "Lanjut menonton", poster = snapshot terakhir, pesan "Kamera
-  offline" bila manifest error. Admin: field `cctv_host` + tombol
+  offline" bila manifest error. Admin: field `cctv_local_ip` + tombol
   "Ambil snapshot".
 
 ### D. OTA di VPS
@@ -173,7 +180,7 @@ Banyak penonton = satu tarikan dari lokasi (MediaMTX fan-out). Penonton
   (Node 22, `node dist/server.js`) dan `frontend` (`nginx-unprivileged`
   menyajikan `frontend/dist`). `sijagakali-ota/docker-compose.yml` di network
   `edge`: Traefik `Host(ota-sijagakali.inspiralabs.id) && PathPrefix(/api)`
-  → backend, sisanya → frontend; broker `mqtt://mosquitto:1883`.
+  → backend, sisanya → frontend; broker `mqtt://sijagakali-mosquitto:1883`.
 - Migrasi tabel OTA (`firmware_releases`, `firmware_updates`) dicek sudah
   ada di Supabase produksi; jalankan bila belum.
 
@@ -183,7 +190,7 @@ Banyak penonton = satu tarikan dari lokasi (MediaMTX fan-out). Penonton
    baris di `mqtt_ingestion` & `sensor_readings`, `last_seen_at` ter-update.
 2. Dummy level > ambang waspada → `notification_logs.status = sent`, pesan
    WA masuk Channel (membuktikan perbaikan A).
-3. Sama, dengan `cctv_host` terisi → WA berisi gambar + teks, file ada di
+3. Sama, dengan `cctv_local_ip` terisi → WA berisi gambar + teks, file ada di
    Storage, `sensor_readings.cctv_image_path` terisi.
 4. ESP32-C5 asli (flash USB dengan URI baru) → ulang 1–2.
 5. Negatif: password salah ditolak; `node-001` publish ke
