@@ -5,6 +5,7 @@ import {
   calcWaterStatus,
   computeSelisihCmAboveWaspada,
   notifyGateway,
+  captureSnapshot,
   type NotificationEvent,
 } from '@sijagakali/shared';
 import { shouldNotify } from './notificationPolicy.js';
@@ -41,6 +42,7 @@ type DeviceConfigRow = {
   notify_cooldown_waspada_sec: number;
   notify_cooldown_siaga_sec: number;
   notify_cooldown_bahaya_sec: number;
+  cctv_local_ip: string | null;
 };
 
 /** Cache konfigurasi device, refresh setiap 5 menit */
@@ -87,7 +89,7 @@ async function getDeviceConfig(
   const { data, error } = await supabase
     .from('device_configs')
     .select(
-      'deployment_slug,device_id,location_name,display_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec'
+      'deployment_slug,device_id,location_name,display_name,read_interval_sec,threshold_waspada_cm,threshold_siaga_cm,threshold_bahaya_cm,notify_digest_hours_local,notify_surge_delta_cm,notify_surge_window_min,notify_cooldown_waspada_sec,notify_cooldown_siaga_sec,notify_cooldown_bahaya_sec,cctv_local_ip'
     )
     .eq('deployment_slug', deploymentSlug)
     .eq('device_id', deviceId)
@@ -207,6 +209,22 @@ async function tryDispatch(
   const notify = shouldNotify(slug, resolvedDeviceId, waterLevelCm, waterStatus, config);
   if (notify) {
     const dep = await getDeploymentNotifyRow(slug);
+    // Kamera IP (Hikvision via Tailscale): snapshot hanya saat notifikasi — hemat kuota 4G lokasi.
+    let cctvPath = cctvRow?.cctv_storage_path ?? null;
+    if (!cctvPath && config.cctv_local_ip) {
+      cctvPath = await captureSnapshot({
+        host: config.cctv_local_ip,
+        deploymentSlug: slug,
+        deviceId: resolvedDeviceId,
+      });
+      if (cctvPath) {
+        const { error: camErr } = await supabase
+          .from('sensor_readings')
+          .update({ cctv_image_path: cctvPath, cctv_captured_at: new Date().toISOString() })
+          .eq('id', reading.id);
+        if (camErr) console.error('[processing] UPDATE cctv_image_path gagal:', camErr.message);
+      }
+    }
     const selisih_cm = computeSelisihCmAboveWaspada(waterLevelCm, config.threshold_waspada_cm);
     const event: NotificationEvent = {
       reading_id: reading.id as string,
@@ -216,7 +234,7 @@ async function tryDispatch(
       device_display_name: config.display_name,
       water_level_cm: waterLevelCm,
       water_status: waterStatus,
-      cctv_image_path: cctvRow?.cctv_storage_path ?? null,
+      cctv_image_path: cctvPath,
       recorded_at: recordedAt,
       deployment_display_name: dep?.display_name ?? slug,
       read_interval_sec: config.read_interval_sec,
