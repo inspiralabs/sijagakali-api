@@ -1124,6 +1124,11 @@ menjadi **Tailscale subnet router**; VPS ikut tailnet dan bisa menjangkau IP LAN
    (default), RTSP Authentication **digest**.
 5. Pastikan ISAPI aktif: Network → Advanced → Integration Protocol (bila ada opsi
    "Enable ISAPI"/"Hikvision-CGI", aktifkan).
+6. **Timestamp di gambar (OSD)**: Configuration → Image → OSD Settings → centang
+   *Display Date* (format 24 jam) dan isi *Camera Name* (mis. "Kali Bojong Kulur").
+   Tanggal/jam tercetak di video live **dan** snapshot — tanpa kode.
+7. **Jam akurat**: Configuration → System → System Settings → Time Settings →
+   **NTP** (`pool.ntp.org`), zona waktu **GMT+07:00**.
 
 Uji dari laptop di WiFi lokasi:
 ```bash
