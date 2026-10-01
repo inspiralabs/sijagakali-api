@@ -1133,12 +1133,29 @@ curl --digest -u USER:PASS -o snap.jpg http://192.168.1.64/ISAPI/Streaming/chann
 
 ## 2. Raspberry Pi (lokasi)
 
+Perangkat: **Raspberry Pi 3 Model B+** (cukup — hanya meneruskan jaringan), microSD
+**SanDisk High Endurance / Samsung PRO Endurance 32 GB** (kartu biasa cepat rusak di
+perangkat 24 jam), adaptor **5V ≥2.5A micro-USB** (adaptor lemah → undervoltage → SD
+korup), kabel LAN ke port TL-MR100, casing berventilasi.
+
+OS: **Raspberry Pi OS Lite (64-bit)** via Raspberry Pi Imager (aktifkan SSH di
+pengaturan Imager).
+
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf
 sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
-sudo tailscale up --advertise-routes=192.168.1.0/24 --hostname=sijagakali-pi-node-001
+sudo tailscale up --advertise-routes=192.168.1.0/24 --hostname=sijagakali-pi-node-001 --ssh
+
+# Kurangi tulisan ke SD: log di RAM
+sudo sed -i 's/^#\?Storage=.*/Storage=volatile/' /etc/systemd/journald.conf
+sudo systemctl restart systemd-journald
+# Update keamanan otomatis
+sudo apt-get install -y unattended-upgrades
 ```
+
+`--ssh` = Tailscale SSH: Pi bisa dikelola dari laptop/VPS mana pun di tailnet tanpa
+membuka port di router.
 
 Sesuaikan `192.168.1.0/24` dengan subnet LAN router 4G. Lalu di
 https://login.tailscale.com/admin/machines:
