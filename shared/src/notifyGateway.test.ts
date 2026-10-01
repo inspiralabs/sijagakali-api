@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { notifyGateway, parseNotificationEvent } from './notifyGateway.js';
+import { notifyGateway, notifyGatewayText, parseNotificationEvent } from './notifyGateway.js';
 import { startTestServer } from './httpServer.test-util.js';
 import type { NotificationEvent } from './types.js';
 
@@ -55,4 +55,26 @@ test('notifyGateway returns false on non-2xx', async () => {
 
 test('notifyGateway returns false when gateway is down', async () => {
   assert.equal(await notifyGateway('http://127.0.0.1:1', event, 2000), false);
+});
+
+test('notifyGatewayText POSTs {message} to /notify-text and reflects send failure', async () => {
+  let got: { url?: string; body?: string } = {};
+  let status = 200;
+  const srv = await startTestServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      got = { url: req.url, body };
+      res.writeHead(status).end();
+    });
+  });
+  try {
+    assert.equal(await notifyGatewayText(srv.url, 'Sensor gangguan'), true);
+    assert.equal(got.url, '/notify-text');
+    assert.deepEqual(JSON.parse(got.body ?? ''), { message: 'Sensor gangguan' });
+    status = 503;
+    assert.equal(await notifyGatewayText(srv.url, 'x'), false);
+  } finally {
+    srv.close();
+  }
 });
