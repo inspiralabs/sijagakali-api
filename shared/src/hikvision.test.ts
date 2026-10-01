@@ -28,7 +28,7 @@ test('buildDigestAuth matches RFC 2617 example', () => {
 });
 
 /** Kamera palsu: 401 + challenge digest, 200 JPEG bila response digest benar. */
-function fakeCamera(password: string, contentType = 'image/jpeg') {
+function fakeCamera(password: string, contentType = 'image/jpeg', uri = HIKVISION_SNAPSHOT_URI) {
   const realm = 'IP Camera(C1234)';
   const nonce = 'abc123nonce';
   return startTestServer((req, res) => {
@@ -38,7 +38,7 @@ function fakeCamera(password: string, contentType = 'image/jpeg') {
       const ha1 = md5(`${p.username}:${realm}:${password}`);
       const ha2 = md5(`GET:${p.uri}`);
       const expected = md5(`${ha1}:${nonce}:${p.nc}:${p.cnonce}:${p.qop}:${ha2}`);
-      if (p.response === expected && p.uri === HIKVISION_SNAPSHOT_URI) {
+      if (p.response === expected && p.uri === uri) {
         res.writeHead(200, { 'Content-Type': contentType }).end(Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
         return;
       }
@@ -54,6 +54,17 @@ test('fetchHikvisionSnapshot returns JPEG after digest handshake', async () => {
   try {
     const host = cam.url.replace('http://', '');
     const buf = await fetchHikvisionSnapshot(host, { username: 'sijagakali', password: 'rahasia', timeoutMs: 2000 });
+    assert.deepEqual([...buf], [0xff, 0xd8, 0xff, 0xd9]);
+  } finally {
+    cam.close();
+  }
+});
+
+test('fetchHikvisionSnapshot can fetch the sub stream (channel 102)', async () => {
+  const cam = await fakeCamera('rahasia', 'image/jpeg', '/ISAPI/Streaming/channels/102/picture');
+  try {
+    const host = cam.url.replace('http://', '');
+    const buf = await fetchHikvisionSnapshot(host, { username: 'sijagakali', password: 'rahasia', timeoutMs: 2000, channel: 102 });
     assert.deepEqual([...buf], [0xff, 0xd8, 0xff, 0xd9]);
   } finally {
     cam.close();

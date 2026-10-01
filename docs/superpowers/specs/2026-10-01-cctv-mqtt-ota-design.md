@@ -60,7 +60,8 @@ ESP32 ──4G── wss://mqtt-sijagakali.inspiralabs.id ─▶ Traefik ─▶ 
 | Pemakaian | Estimasi |
 |---|---|
 | MQTT sensor + heartbeat | < 0.1 GB |
-| Snapshot (±400 KB × ±300) | ±0.1 GB |
+| Snapshot kejadian (±400 KB × ±300) | ±0.1 GB |
+| Snapshot berkala 15 menit, sub stream (±50 KB × ~2.880) | ±0.15 GB/bulan (juga pertumbuhan Supabase Storage; belum dihapus otomatis) |
 | Live sub stream 512 kbps | ±230 MB/jam → ±300 jam/bulan maksimum |
 
 Banyak penonton = satu tarikan dari lokasi (MediaMTX fan-out). Penonton
@@ -247,6 +248,8 @@ Pakai `node:test` + `tsx` (tanpa framework baru):
 - **Snapshot berkala**: default tiap **15 menit**, interval diatur admin per
   device (`device_configs.snapshot_interval_min`, 0 = mati). Snapshot di tiap
   kejadian notifikasi dan tombol manual admin tetap ada.
+- **Sub stream untuk berkala**: snapshot berkala memakai sub stream (channel
+  102, kecil); snapshot kejadian & manual memakai main stream (101).
 - **Foto terbaru per device** disimpan di `device_configs.last_snapshot_path/at`
   (diisi semua jenis snapshot) — memperbaiki dashboard yang sebelumnya
   mengambil foto dari reading terbaru (hilang 1 menit setelah alarm).

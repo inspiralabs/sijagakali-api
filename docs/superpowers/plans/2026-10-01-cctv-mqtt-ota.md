@@ -1759,7 +1759,7 @@ frontend/dist
 *.log
 ```
 
-(`frontend/.env` sengaja **tidak** di-ignore: isinya nilai publik `VITE_*` yang dibaca Vite saat build.)
+(`frontend/.env` sengaja **tidak** di-ignore: isinya nilai publik `VITE_*` yang dibaca Vite saat build; file ini di-gitignore oleh `frontend/.gitignore` — buat manual di VPS sebelum build, tanpa itu `VITE_OTA_API_URL` jatuh ke `http://localhost:3787`.)
 
 Create `Dockerfile`:
 

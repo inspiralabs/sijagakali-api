@@ -210,7 +210,8 @@ async function tryDispatch(
   const notify = shouldNotify(slug, resolvedDeviceId, waterLevelCm, waterStatus, config);
   if (notify) {
     const dep = await getDeploymentNotifyRow(slug);
-    // Kamera IP (Hikvision via Tailscale): snapshot hanya saat notifikasi — hemat kuota 4G lokasi.
+    // Kamera IP (Hikvision via Tailscale): snapshot kejadian memakai main stream (101);
+    // snapshot berkala ada di loop terpisah (sub stream 102).
     let cctvPath = cctvRow?.cctv_storage_path ?? null;
     if (!cctvPath && config.cctv_local_ip) {
       cctvPath = await captureSnapshot({
@@ -403,6 +404,7 @@ async function runPeriodicSnapshots() {
         host,
         deploymentSlug: row.deployment_slug as string,
         deviceId: row.device_id as string,
+        channel: 102, // sub stream: berkala harus kecil (hemat Storage)
       });
       if (path) console.log(`[processing] snapshot berkala OK — device=${row.device_id}`);
     }

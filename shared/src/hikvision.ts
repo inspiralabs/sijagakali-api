@@ -1,7 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-/** Snapshot JPEG main stream (channel 101) via ISAPI. */
-export const HIKVISION_SNAPSHOT_URI = '/ISAPI/Streaming/channels/101/picture';
+/** URI snapshot JPEG via ISAPI. 101 = main stream, 102 = sub stream. */
+export function hikvisionSnapshotUri(channel = 101): string {
+  return `/ISAPI/Streaming/channels/${channel}/picture`;
+}
+
+/** Snapshot main stream (channel 101). */
+export const HIKVISION_SNAPSHOT_URI = hikvisionSnapshotUri(101);
 
 const md5 = (s: string) => createHash('md5').update(s).digest('hex');
 
@@ -50,9 +55,10 @@ export function buildDigestAuth(opts: {
 /** Ambil snapshot JPEG dari kamera Hikvision. Throw bila auth/HTTP/content-type/timeout gagal. */
 export async function fetchHikvisionSnapshot(
   host: string,
-  creds: { username: string; password: string; timeoutMs: number }
+  creds: { username: string; password: string; timeoutMs: number; channel?: number }
 ): Promise<Buffer> {
-  const url = `http://${host}${HIKVISION_SNAPSHOT_URI}`;
+  const uri = hikvisionSnapshotUri(creds.channel);
+  const url = `http://${host}${uri}`;
   const signal = AbortSignal.timeout(creds.timeoutMs);
 
   let res = await fetch(url, { signal });
@@ -67,7 +73,7 @@ export async function fetchHikvisionSnapshot(
       headers: {
         Authorization: buildDigestAuth({
           method: 'GET',
-          uri: HIKVISION_SNAPSHOT_URI,
+          uri,
           username: creds.username,
           password: creds.password,
           challenge,
