@@ -90,6 +90,18 @@ services:
       - traefik.http.routers.sijagakali-mqtt.rule=Host(`mqtt-sijagakali.inspiralabs.id`)
       - traefik.http.services.sijagakali-mqtt.loadbalancer.server.port=9001
 
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    restart: unless-stopped
+    networks: [edge]
+    volumes:
+      - ./deploy/mediamtx.yml:/mediamtx.yml:ro
+    expose: ["8888"]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.sijagakali-cctv.rule=Host(`cctv-sijagakali.inspiralabs.id`)
+      - traefik.http.services.sijagakali-cctv.loadbalancer.server.port=8888
+
 volumes:
   wa-session:
   mosquitto-data:

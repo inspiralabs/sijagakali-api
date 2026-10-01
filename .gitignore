@@ -17,3 +17,6 @@ data-processing/src/**/*.d.ts
 .agents/
 .rtk/
 CLAUDE.md
+
+# Konfigurasi MediaMTX asli (berisi kredensial kamera)
+deploy/mediamtx.yml
