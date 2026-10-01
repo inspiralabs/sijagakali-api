@@ -7,7 +7,12 @@ import {
   notifyGateway,
   captureSnapshot,
   isSnapshotDue,
+  notifyGatewayText,
+  sensorHealth,
+  healthTransition,
+  formatSensorHealthMessage,
   type NotificationEvent,
+  type SensorHealth,
 } from '@sijagakali/shared';
 import { shouldNotify } from './notificationPolicy.js';
 
@@ -416,6 +421,70 @@ async function runPeriodicSnapshots() {
 setInterval(() => {
   void runPeriodicSnapshots();
 }, SNAPSHOT_TICK_MS);
+
+/**
+ * Peringatan WA saat data sensor berhenti masuk (sensor gangguan / perangkat offline) dan saat pulih.
+ * Firmware tidak mengirim data palsu saat gagal baca, jadi "diam" harus dilaporkan.
+ */
+const SENSOR_HEALTH_TICK_MS = 60_000;
+// ponytail: status terakhir yang sudah diumumkan/dicatat, di memori — restart dalam 24 jam pertama gangguan = satu peringatan ulang.
+const reportedHealth = new Map<string, SensorHealth>();
+let healthTickRunning = false;
+
+async function checkSensorHealth() {
+  if (healthTickRunning) return;
+  healthTickRunning = true;
+  try {
+    const { data: devices, error } = await supabase
+      .from('device_configs')
+      .select('deployment_slug,device_id,location_name,display_name,read_interval_sec,last_seen_at')
+      .eq('is_active', true);
+    if (error) {
+      console.error('[processing] query kesehatan sensor gagal:', error.message);
+      return;
+    }
+    for (const d of devices ?? []) {
+      const { data: latest } = await supabase
+        .from('sensor_readings')
+        .select('recorded_at')
+        .eq('deployment_slug', d.deployment_slug)
+        .eq('device_id', d.device_id)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const lastReadingAt = (latest?.recorded_at as string | undefined) ?? null;
+      const health = sensorHealth({
+        lastReadingAt,
+        lastSeenAt: d.last_seen_at as string | null,
+        readIntervalSec: Number(d.read_interval_sec),
+      });
+      const key = `${d.deployment_slug}:${d.device_id}`;
+      const previous = reportedHealth.get(key) ?? 'ok';
+      const action = healthTransition(previous, health, lastReadingAt);
+      if (action === 'none' || !lastReadingAt || health === 'unknown') continue;
+      if (action === 'record') {
+        reportedHealth.set(key, health);
+        console.log(`[processing] kesehatan sensor ${key}: ${health} sejak ${lastReadingAt} (gangguan lama, tanpa WA)`);
+        continue;
+      }
+
+      const postName = (d.display_name as string | null) || (d.location_name as string);
+      const sent = await notifyGatewayText(
+        ENV.GATEWAY_URL,
+        formatSensorHealthMessage(health, postName, lastReadingAt)
+      );
+      // Belum terkirim (WA belum siap / gateway mati) → coba lagi menit berikutnya.
+      if (sent) reportedHealth.set(key, health);
+      console.log(`[processing] kesehatan sensor ${key}: ${previous} → ${health} (WA ${sent ? 'terkirim' : 'GAGAL'})`);
+    }
+  } finally {
+    healthTickRunning = false;
+  }
+}
+
+setInterval(() => {
+  void checkSensorHealth();
+}, SENSOR_HEALTH_TICK_MS);
 
 setInterval(() => {
   console.log('[processing] metrics', JSON.stringify(metrics));

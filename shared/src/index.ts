@@ -8,6 +8,7 @@ export * from './cctvSignedUrl.js';
 export * from './cctvSnapshot.js';
 export * from './snapshotSchedule.js';
 export * from './notifyGateway.js';
+export * from './sensorHealth.js';
 export * from './bmkg/types.js';
 export {
   BMKG_ADM4_RE,
