@@ -88,7 +88,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
         mqttClient.on('connect', () => {
           const topic = `sijagakali/${deviceId}/config/interval`;
           const payload = JSON.stringify({ interval_sec, updated_by: 'admin-dashboard' });
-          mqttClient.publish(topic, payload, { qos: 1 }, (err) => {
+          mqttClient.publish(topic, payload, { qos: 1, retain: true }, (err) => {
             mqttClient.end();
             if (err) reject(err);
             else resolve();
@@ -300,7 +300,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
               interval_sec: read_interval_sec,
               updated_by: 'admin-dashboard',
             });
-            mqttClient.publish(topic, payload, { qos: 1 }, (err) => {
+            mqttClient.publish(topic, payload, { qos: 1, retain: true }, (err) => {
               mqttClient.end();
               if (err) reject(err);
               else resolve();
@@ -532,7 +532,7 @@ export async function registerDeviceRoutes(app: FastifyInstance, deps: RouteDeps
               interval_sec: newInterval,
               updated_by: 'admin-dashboard',
             });
-            mqttClient.publish(topic, payload, { qos: 1 }, (err) => {
+            mqttClient.publish(topic, payload, { qos: 1, retain: true }, (err) => {
               mqttClient.end();
               if (err) reject(err);
               else resolve();
