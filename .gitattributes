@@ -1,2 +1,3 @@
 
 deploy/*.yml text eol=lf
+deploy/raspberry-pi/* text eol=lf

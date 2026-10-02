@@ -40,6 +40,42 @@ Nilai yang dipakai di panduan ini (ganti bila berbeda):
 
 ---
 
+## Cara cepat (disarankan): skrip setup
+
+Langkah 4–11 di bawah sudah dibungkus dalam skrip `deploy/raspberry-pi/setup.sh`
+(aman dijalankan ulang). Untuk pemasangan baru — termasuk pindah ke microSD baru —
+**flash ulang lalu jalankan skrip**, bukan menyalin image kartu uji.
+
+1. Langkah 1–3 di bawah: SSH key, flash Raspberry Pi OS Lite (64-bit) dengan SSH
+   public key, boot & cari IP.
+2. Dari laptop, di folder repo `sijagakali-api`:
+   ```bash
+   scp -r deploy/raspberry-pi <user>@<ip-pi>:
+   ssh <user>@<ip-pi> 'sudo bash raspberry-pi/setup.sh'
+   ```
+   Lokasi lain? Isi nilainya: `sudo SITE_NAME=... SITE_SUBNET=192.168.x.0/24 CAMERA_IP=... bash raspberry-pi/setup.sh`
+3. Ikuti 4 langkah yang dicetak di akhir skrip: `tailscale up` (login), setujui route +
+   matikan key expiry, `sudo reboot`, ganti password (`passwd`).
+4. `sjk-health` → semua baris OK (Kamera baru terjangkau setelah Pi di LAN lokasi).
+5. Langkah 12: backup image kartu yang sudah jadi.
+
+Hasil skrip:
+
+| Yang dipasang | Lokasi file |
+|---|---|
+| Nilai per lokasi (subnet, IP kamera) | `/etc/sijagakali/site.conf` → ubah lalu `sudo sjk-apply` |
+| Cek kondisi | `sjk-health` (daya, suhu, disk, Tailscale, kamera) |
+| Log di RAM | `/etc/systemd/journald.conf.d/10-sijagakali.conf` |
+| Watchdog | `/etc/systemd/system.conf.d/10-sijagakali-watchdog.conf` |
+| SSH hanya key (dilewati bila belum ada key) | `/etc/ssh/sshd_config.d/10-sijagakali.conf` |
+| Update keamanan otomatis | `/etc/apt/apt.conf.d/20auto-upgrades` |
+| IP forwarding Tailscale | `/etc/sysctl.d/99-tailscale.conf` |
+
+Pengaturan disimpan sebagai file terpisah — untuk membatalkan salah satu, cukup hapus filenya.
+Bagian A di bawah adalah penjelasan manual dari apa yang dilakukan skrip.
+
+---
+
 ## A. Raspberry Pi (dikerjakan sebelum dibawa ke lokasi)
 
 Kerjakan langkah 1–9 di rumah/kantor dengan Pi tersambung ke router mana pun.
