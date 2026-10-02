@@ -5,6 +5,7 @@ TL-MR100** dan dikelola dari **VPS** (`srv2016160`, 72.62.125.210).
 
 | Panduan | Isi |
 |---|---|
+| [00-arsitektur.md](00-arsitektur.md) | Arsitektur operasional: komponen & alamat, jalur VPS → kamera lewat Tailscale, port, tempat mengubah, cari masalah per lapis |
 | [01-cctv.md](01-cctv.md) | Kamera Hikvision DS-2CD1041G2-LIUF: live video + snapshot |
 | [02-raspberry-pi.md](02-raspberry-pi.md) | Raspberry Pi 3B+ sebagai "jembatan" Tailscale ke kamera |
 | [03-esp32.md](03-esp32.md) | ESP32-C5 + sensor ultrasonik A01ANY4B: level air via MQTT |
@@ -25,6 +26,8 @@ VPS
 
 - **ESP32 tidak butuh Raspberry Pi.** Ia langsung ke internet lewat WiFi router.
 - **Kamera butuh Raspberry Pi.** Server tidak bisa menjangkau kamera di balik 4G (CGNAT) tanpa jembatan Tailscale.
+- Pi **tidak menjalankan program CCTV** — hanya meneruskan paket. Yang mengambil foto/video
+  adalah server di VPS. Detail jalur, port, dan cara cek per lapis: [00 — Arsitektur](00-arsitektur.md).
 
 ## Urutan pemasangan
 
