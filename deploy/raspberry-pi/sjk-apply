@@ -1,0 +1,7 @@
+#!/bin/bash
+# Terapkan /etc/sijagakali/site.conf ke Tailscale.  Pakai: sudo sjk-apply
+set -euo pipefail
+. /etc/sijagakali/site.conf
+tailscale set --advertise-routes="$SITE_SUBNET" --ssh
+echo "Tailscale meneruskan subnet $SITE_SUBNET (lokasi: $SITE_NAME)."
+echo "Subnet baru? Setujui di https://login.tailscale.com/admin/machines -> Edit route settings."
