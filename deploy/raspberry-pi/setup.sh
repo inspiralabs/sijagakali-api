@@ -44,9 +44,13 @@ if systemctl list-unit-files | grep -q '^dphys-swapfile'; then
   dphys-swapfile swapoff || true; systemctl disable --now dphys-swapfile || true   # OS lama: swap di SD
 fi
 
-log "5. hardware watchdog (restart otomatis bila macet > 15 detik)"
-mkdir -p /etc/systemd/system.conf.d
-printf '[Manager]\nRuntimeWatchdogSec=15\nRebootWatchdogSec=2min\n' > /etc/systemd/system.conf.d/10-sijagakali-watchdog.conf
+log "5. hardware watchdog (restart otomatis bila sistem macet)"
+# Raspberry Pi OS terbaru sudah mengaktifkannya (40-rpi-enable-watchdog.conf, 1 menit);
+# hanya tambahkan bila OS belum menyediakan.
+if ! systemd-analyze cat-config systemd/system.conf | grep -q '^RuntimeWatchdogSec='; then
+  mkdir -p /etc/systemd/system.conf.d
+  printf '[Manager]\nRuntimeWatchdogSec=1min\nRebootWatchdogSec=2min\n' > /etc/systemd/system.conf.d/50-sijagakali-watchdog.conf
+fi
 
 log "6. bluetooth mati (WiFi tetap aktif sebagai cadangan bila kabel LAN lepas)"
 grep -q '^dtoverlay=disable-bt' /boot/firmware/config.txt || echo 'dtoverlay=disable-bt' >> /boot/firmware/config.txt

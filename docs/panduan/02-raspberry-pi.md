@@ -66,7 +66,7 @@ Hasil skrip:
 | Nilai per lokasi (subnet, IP kamera) | `/etc/sijagakali/site.conf` → ubah lalu `sudo sjk-apply` |
 | Cek kondisi | `sjk-health` (daya, suhu, disk, Tailscale, kamera) |
 | Log di RAM | `/etc/systemd/journald.conf.d/10-sijagakali.conf` |
-| Watchdog | `/etc/systemd/system.conf.d/10-sijagakali-watchdog.conf` |
+| Watchdog | bawaan Raspberry Pi OS (`40-rpi-enable-watchdog.conf`); `50-sijagakali-watchdog.conf` hanya di OS lama |
 | SSH hanya key (dilewati bila belum ada key) | `/etc/ssh/sshd_config.d/10-sijagakali.conf` |
 | Update keamanan otomatis | `/etc/apt/apt.conf.d/20auto-upgrades` |
 | IP forwarding Tailscale | `/etc/sysctl.d/99-tailscale.conf` |
@@ -174,15 +174,18 @@ grep ' / ' /etc/fstab        # baris root harus berisi noatime,commit=600
 ```
 
 ### 9. Pulih sendiri kalau hang (hardware watchdog)
+Raspberry Pi OS terbaru **sudah mengaktifkannya** (`/usr/lib/systemd/system.conf.d/40-rpi-enable-watchdog.conf`). Cek:
 ```bash
-sudo sed -i 's/^#\?RuntimeWatchdogSec=.*/RuntimeWatchdogSec=15/' /etc/systemd/system.conf
-sudo sed -i 's/^#\?RebootWatchdogSec=.*/RebootWatchdogSec=2min/' /etc/systemd/system.conf
-grep -E '^(RuntimeWatchdogSec|RebootWatchdogSec)' /etc/systemd/system.conf || \
-  echo -e "RuntimeWatchdogSec=15\nRebootWatchdogSec=2min" | sudo tee -a /etc/systemd/system.conf
+systemctl show -p RuntimeWatchdogUSec      # harus bukan 0, mis. RuntimeWatchdogUSec=1min
+```
+Kalau `0` (OS lama), tambahkan:
+```bash
+sudo mkdir -p /etc/systemd/system.conf.d
+printf '[Manager]\nRuntimeWatchdogSec=1min\nRebootWatchdogSec=2min\n' | sudo tee /etc/systemd/system.conf.d/50-sijagakali-watchdog.conf
 sudo reboot
 ```
-Kalau sistem macet > 15 detik, chip watchdog me-restart Pi otomatis. Setelah listrik
-padam, Pi menyala sendiri saat listrik kembali (tidak ada tombol power).
+Kalau sistem macet, chip watchdog me-restart Pi otomatis. Setelah listrik padam, Pi
+menyala sendiri saat listrik kembali (tidak ada tombol power).
 
 ### 10. Pasang Tailscale sebagai subnet router
 ```bash
@@ -270,7 +273,7 @@ tailnet ada?) dan `sudo iptables -t nat -S POSTROUTING` (aturan MASQUERADE ada?)
 - [ ] `unattended-upgrades` aktif
 - [ ] WiFi/Bluetooth dimatikan (bila pakai kabel)
 - [ ] Journald di RAM, swap mati, root `noatime,commit=600`
-- [ ] Watchdog aktif (`RuntimeWatchdogSec=15`)
+- [ ] Watchdog aktif (`systemctl show -p RuntimeWatchdogUSec` bukan 0)
 - [ ] Tailscale: route `192.168.1.0/24` disetujui, key expiry dimatikan (Pi & VPS)
 - [ ] VPS: NAT MASQUERADE tersimpan, uji dari container `200 image/jpeg`
 - [ ] Image microSD cadangan tersimpan
