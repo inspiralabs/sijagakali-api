@@ -242,15 +242,6 @@ gatewayApp.post('/notify', async (req, reply) => {
   return reply.code(202).send({ ok: true });
 });
 
-/** Teks bebas ke WA Channel (peringatan sensor gangguan/offline). Menunggu hasil kirim agar pemanggil bisa retry. */
-gatewayApp.post<{ Body: { message?: string } }>('/notify-text', async (req, reply) => {
-  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
-  if (!message) return reply.code(400).send({ error: 'message wajib diisi' });
-  const result = await sendToChannel(message, null);
-  if (!result.ok) return reply.code(503).send({ error: result.error ?? 'Gagal mengirim' });
-  return reply.send({ ok: true });
-});
-
 gatewayApp.get('/health', async () => ({ ok: true }));
 
 const gatewayPort = ENV.GATEWAY_HTTP_PORT;

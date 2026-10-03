@@ -23,27 +23,11 @@ export async function notifyGateway(
   event: NotificationEvent,
   timeoutMs = 10_000
 ): Promise<boolean> {
-  return postToGateway(`${gatewayUrl}/notify`, event, timeoutMs);
-}
-
-/**
- * Kirim teks bebas ke WA Channel (`POST {gatewayUrl}/notify-text`), mis. peringatan sensor gangguan.
- * true hanya bila gateway benar-benar mengirim — pemanggil bisa mencoba lagi bila false.
- */
-export async function notifyGatewayText(
-  gatewayUrl: string,
-  message: string,
-  timeoutMs = 30_000
-): Promise<boolean> {
-  return postToGateway(`${gatewayUrl}/notify-text`, { message }, timeoutMs);
-}
-
-async function postToGateway(url: string, body: unknown, timeoutMs: number): Promise<boolean> {
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`${gatewayUrl}/notify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(event),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
