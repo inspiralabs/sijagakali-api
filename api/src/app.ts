@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { getSupabaseStorage, getSupabase, ENV } from '@sijagakali/shared';
 import { registerCors } from './plugins/corsPlugin.js';
+import { registerLenientJson } from './plugins/jsonBodyPlugin.js';
 import { createRequireAdmin } from './hooks/requireAdmin.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerCctvRoutes } from './routes/cctv.js';
@@ -12,7 +13,6 @@ import { registerWeatherRoutes } from './routes/weather.js';
 import { registerWilayahRoutes } from './routes/wilayah.js';
 import { registerBanjirEventRoutes } from './routes/banjirEvents.js';
 import { registerWargaTerdampakRoutes } from './routes/wargaTerdampak.js';
-import { registerMockDataRoutes } from './routes/mockData.js';
 import type { RouteDeps } from './types/deps.js';
 
 export async function buildApp() {
@@ -29,6 +29,7 @@ export async function buildApp() {
     requireAdmin,
   };
 
+  registerLenientJson(app);
   await registerCors(app, ENV);
 
   await registerHealthRoutes(app);
@@ -41,7 +42,6 @@ export async function buildApp() {
   await registerWilayahRoutes(app, deps);
   await registerBanjirEventRoutes(app, deps);
   await registerWargaTerdampakRoutes(app, deps);
-  await registerMockDataRoutes(app, deps);
 
   return app;
 }
