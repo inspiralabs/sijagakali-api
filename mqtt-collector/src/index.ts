@@ -3,7 +3,8 @@ import { createMqttClient, getSupabase, getSupabaseStorage, ENV, cctvStoragePath
 import {
   TOPICS,
   extractDeviceId,
-  parsePiTemp,
+  parsePiHealth,
+  parsePiDeviceMap,
   type SensorDataPayload,
   type CctvMetaPayload,
 } from '@sijagakali/shared';
@@ -13,6 +14,7 @@ const supabaseStorage = getSupabaseStorage();
 const bucket = ENV.SUPABASE_STORAGE_BUCKET_CCTV_IMAGES;
 const defaultDeployment = ENV.DEFAULT_DEPLOYMENT_SLUG;
 const lastSeenThrottleMs = ENV.LAST_SEEN_THROTTLE_MS;
+const piDeviceMap = parsePiDeviceMap(ENV.PI_DEVICE_MAP);
 
 /** device key → timestamp ms terakhir UPDATE last_seen_at ke DB */
 const lastSeenUpdatedAt = new Map<string, number>();
@@ -34,7 +36,7 @@ const client = createMqttClient('collector');
 
 client.on('connect', () => {
   client.subscribe(
-    [TOPICS.SENSOR_DATA, TOPICS.CCTV_IMAGE, TOPICS.CCTV_META, TOPICS.SENSOR_STATUS, TOPICS.PI_STATUS],
+    [TOPICS.SENSOR_DATA, TOPICS.CCTV_IMAGE, TOPICS.CCTV_META, TOPICS.SENSOR_STATUS, TOPICS.PI_HEALTH],
     { qos: 1 },
     (err) => {
       if (err) console.error('[collector] Subscribe error:', err.message);
@@ -51,8 +53,8 @@ client.on('message', async (topic: string, payload: Buffer) => {
       await handleCctvImage(topic, payload);
     } else if (topic.endsWith('/cctv/meta')) {
       handleCctvMeta(topic, payload);
-    } else if (topic.endsWith('/cctv/pi-status')) {
-      await handlePiStatus(topic, payload);
+    } else if (topic.startsWith('devices/') && topic.endsWith('/health')) {
+      await handlePiHealth(topic, payload);
     } else if (topic.endsWith('/sensor/status')) {
       await handleSensorStatus(topic, payload);
     }
@@ -175,24 +177,25 @@ async function handleSensorStatus(topic: string, payload: Buffer) {
   }
 }
 
-async function handlePiStatus(topic: string, payload: Buffer) {
-  const deviceId = extractDeviceId(topic);
-  if (!deviceId) return;
+async function handlePiHealth(topic: string, payload: Buffer) {
+  const piId = extractDeviceId(topic);
+  const deviceId = piId ? piDeviceMap.get(piId) : undefined;
+  if (!deviceId) return; // Pi lain di broker infra yang bukan milik SiJagaKali
 
-  let temp: number | null = null;
+  let health: ReturnType<typeof parsePiHealth> = null;
   try {
-    temp = parsePiTemp(JSON.parse(payload.toString('utf8')));
+    health = parsePiHealth(JSON.parse(payload.toString('utf8')));
   } catch {
-    // JSON rusak → temp tetap null
+    // JSON rusak → health tetap null
   }
-  if (temp === null) {
-    console.warn('[collector] cctv/pi-status payload tidak valid untuk device', deviceId);
+  if (!health) {
+    console.warn('[collector] devices/health payload tidak valid untuk Pi', piId);
     return;
   }
 
   const { error } = await supabase
     .from('device_configs')
-    .update({ pi_temp_c: temp, pi_temp_at: new Date().toISOString() })
+    .update({ pi_temp_c: health.tempC, pi_temp_at: health.at.toISOString() })
     .eq('deployment_slug', defaultDeployment)
     .eq('device_id', deviceId);
 

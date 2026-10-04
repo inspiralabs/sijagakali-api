@@ -210,17 +210,12 @@ df -h /                       # sisa ruang microSD
 ```
 Kalau `get_throttled` bukan `0x0`: ganti adaptor/kabel micro-USB sebelum dibawa ke lokasi.
 
-### 11b. Kirim suhu Pi ke dashboard
-Suhu CPU Pi dikirim tiap 2 menit lewat MQTT dan tampil di kartu perangkat (memakai akun MQTT
-device yang sama dengan ESP32 lokasi ini). `setup.sh` sudah memasang timer-nya; tinggal isi kredensial:
-```bash
-sudo install -m 600 /dev/null /etc/sijagakali/mqtt.conf
-sudo nano /etc/sijagakali/mqtt.conf
-#   MQTT_DEVICE_ID=node-001
-#   MQTT_PASSWORD=<password akun MQTT node-001>
-sudo sjk-report && sjk-health      # baris "Lapor MQTT" harus OK
-```
-Dashboard menampilkan `—` bila laporan terakhir lebih dari 10 menit (Pi mati / tanpa internet).
+### 11b. Suhu Pi di dashboard
+Suhu Pi diambil dari laporan kondisi yang sudah dikirim `sjk-health-publish` (dipasang dari
+`server-setup/field/pi`, akun MQTT `sijagakali-pi-001`, topik `devices/sijagakali-pi-001/health`,
+tiap 5 menit). `mqtt-collector` memetakannya ke device lewat env `PI_DEVICE_MAP`
+(default `sijagakali-pi-001=node-001`). Tidak ada yang perlu dipasang khusus untuk dashboard.
+Dashboard menampilkan `—` bila laporan terakhir lebih dari 10 menit.
 
 ### 12. Backup image microSD (cadangan siap pakai)
 Setelah semua beres: matikan Pi (`sudo poweroff`), cabut microSD, lalu buat image:
