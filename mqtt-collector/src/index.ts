@@ -3,6 +3,7 @@ import { createMqttClient, getSupabase, getSupabaseStorage, ENV, cctvStoragePath
 import {
   TOPICS,
   extractDeviceId,
+  parsePiTemp,
   type SensorDataPayload,
   type CctvMetaPayload,
 } from '@sijagakali/shared';
@@ -33,7 +34,7 @@ const client = createMqttClient('collector');
 
 client.on('connect', () => {
   client.subscribe(
-    [TOPICS.SENSOR_DATA, TOPICS.CCTV_IMAGE, TOPICS.CCTV_META, TOPICS.SENSOR_STATUS],
+    [TOPICS.SENSOR_DATA, TOPICS.CCTV_IMAGE, TOPICS.CCTV_META, TOPICS.SENSOR_STATUS, TOPICS.PI_STATUS],
     { qos: 1 },
     (err) => {
       if (err) console.error('[collector] Subscribe error:', err.message);
@@ -50,6 +51,8 @@ client.on('message', async (topic: string, payload: Buffer) => {
       await handleCctvImage(topic, payload);
     } else if (topic.endsWith('/cctv/meta')) {
       handleCctvMeta(topic, payload);
+    } else if (topic.endsWith('/cctv/pi-status')) {
+      await handlePiStatus(topic, payload);
     } else if (topic.endsWith('/sensor/status')) {
       await handleSensorStatus(topic, payload);
     }
@@ -170,6 +173,30 @@ async function handleSensorStatus(topic: string, payload: Buffer) {
   } catch {
     console.warn('[collector] sensor/status parse error for device', deviceId);
   }
+}
+
+async function handlePiStatus(topic: string, payload: Buffer) {
+  const deviceId = extractDeviceId(topic);
+  if (!deviceId) return;
+
+  let temp: number | null = null;
+  try {
+    temp = parsePiTemp(JSON.parse(payload.toString('utf8')));
+  } catch {
+    // JSON rusak → temp tetap null
+  }
+  if (temp === null) {
+    console.warn('[collector] cctv/pi-status payload tidak valid untuk device', deviceId);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('device_configs')
+    .update({ pi_temp_c: temp, pi_temp_at: new Date().toISOString() })
+    .eq('deployment_slug', defaultDeployment)
+    .eq('device_id', deviceId);
+
+  if (error) console.error('[collector] UPDATE pi_temp failed:', error.message);
 }
 
 async function insertIngestionFailed(
