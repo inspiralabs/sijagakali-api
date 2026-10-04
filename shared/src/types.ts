@@ -30,12 +30,18 @@ export interface SensorStatusPayload {
   heap_free_bytes?: number;
 }
 
+/** Payload MQTT topik `sijagakali/{device_id}/cctv/pi-status` (Raspberry Pi lokasi) */
+export interface PiStatusPayload {
+  pi_temp_c: number;
+}
+
 /** Konstanta topik MQTT */
 export const TOPICS = {
   SENSOR_DATA: 'sijagakali/+/sensor/data',
   SENSOR_STATUS: 'sijagakali/+/sensor/status',
   CCTV_IMAGE: 'sijagakali/+/cctv/image',
   CCTV_META: 'sijagakali/+/cctv/meta',
+  PI_STATUS: 'sijagakali/+/cctv/pi-status',
   CONFIG_INTERVAL: (deviceId: string) => `sijagakali/${deviceId}/config/interval`,
   COMMAND: (deviceId: string) => `sijagakali/${deviceId}/command`,
 } as const;
