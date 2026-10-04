@@ -36,8 +36,6 @@ export const TOPICS = {
   SENSOR_STATUS: 'sijagakali/+/sensor/status',
   CCTV_IMAGE: 'sijagakali/+/cctv/image',
   CCTV_META: 'sijagakali/+/cctv/meta',
-  /** Laporan kondisi Raspberry Pi (sjk-health-publish), di luar namespace sijagakali/ */
-  PI_HEALTH: 'devices/+/health',
   CONFIG_INTERVAL: (deviceId: string) => `sijagakali/${deviceId}/config/interval`,
   COMMAND: (deviceId: string) => `sijagakali/${deviceId}/command`,
 } as const;
