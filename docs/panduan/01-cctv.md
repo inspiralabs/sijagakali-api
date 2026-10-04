@@ -31,10 +31,10 @@ satu untuk Raspberry Pi.
 
 ### 2. IP statis
 **Configuration → Network → Basic Settings → TCP/IP**: matikan DHCP, isi:
-- IPv4 Address: **`192.168.1.101`** (nilai yang sudah tercatat di dashboard & VPS)
+- IPv4 Address: **`192.168.1.64`** (nilai yang sudah tercatat di dashboard & VPS)
 - Subnet mask `255.255.255.0`, Default gateway `192.168.1.1`, DNS `8.8.8.8`
 
-> IP lain boleh, tetapi ubah juga di dashboard (CCTV → IP kamera) dan di VPS
+> `.64` berada di luar pool DHCP router (.100–.199) sehingga tidak bentrok. IP lain boleh, tetapi ubah juga di dashboard (CCTV → IP kamera) dan di VPS
 > `deploy/mediamtx.yml` — lihat [peta kredensial](README.md#peta-kredensial--nilai-yang-saling-terkait).
 
 ### 3. Sub stream untuk live (hemat kuota)
@@ -48,8 +48,11 @@ Main stream (4MP) dibiarkan — dipakai untuk snapshot alarm/manual yang tajam.
 ### 4. User khusus untuk server
 **System → User Management → Add**: level **User**, hak **Remote: Live View** saja.
 
-- **Username harus sama dengan `CCTV_USERNAME` di VPS** — saat ini **`sijagakali-sukses`**.
+- **Username harus sama dengan `CCTV_USERNAME` di VPS** — saat ini **`sijagakali`**.
 - **Password harus sama dengan `CCTV_PASSWORD` di VPS `.env`** (yang sudah Anda isi).
+- Aturan Hikvision: username hanya huruf/angka (tanda `-` ditolak); password 8–16 karakter,
+  tidak boleh memuat username. Login pertama user baru **wajib ganti password** di web kamera —
+  lakukan sekali, lalu samakan password baru di VPS.
 - Kalau ingin username/password lain: ubah di kamera, lalu di VPS ubah `CCTV_USERNAME`/
   `CCTV_PASSWORD` di `/srv/apps/sijagakali-api/.env` **dan** bagian `rtsp://USER:PASS@...`
   di `/srv/apps/sijagakali-api/deploy/mediamtx.yml`.
@@ -66,14 +69,14 @@ Main stream (4MP) dibiarkan — dipakai untuk snapshot alarm/manual yang tajam.
 
 ### 7. Uji dari laptop (WiFi yang sama)
 ```bash
-curl --digest -u sijagakali-sukses:PASSWORD -o snap.jpg http://192.168.1.101/ISAPI/Streaming/channels/101/picture
+curl --digest -u sijagakali:PASSWORD -o snap.jpg http://192.168.1.64/ISAPI/Streaming/channels/101/picture
 ```
 `snap.jpg` harus foto kamera dengan tanggal/jam di pojok. Kalau `401` → username/password
 salah atau user belum punya hak Live View.
 
 ### 8. Isi di dashboard admin
 Pengaturan Perangkat → (device) → kartu **CCTV**:
-- IP kamera di LAN lapangan: `192.168.1.101`
+- IP kamera di LAN lapangan: `192.168.1.64`
 - URL streaming (live): `https://cctv-sijagakali.inspiralabs.id/cam-node-001/index.m3u8`
 - Snapshot berkala: `15` menit (0 = mati) → **Simpan interval**
 

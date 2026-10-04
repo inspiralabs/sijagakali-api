@@ -20,7 +20,7 @@ LOKASI SUNGAI (LAN router 192.168.1.0/24)
   Raspberry Pi 3B+ ──LAN────┘          │ internet
                                        ▼
 VPS
-  ├─ ESP32 → mqtts://mqtt.inspiralabs.id:8883 (broker MQTT infra) → mqtt-collector → data-processing → WA
+  ├─ ESP32 → mqtts://mqtt.inspiralabs.id:8883 (broker MQTT infra) → mqtt-collector → data-processing → WA warga
   ├─ data-processing/api ──Tailscale (lewat Pi)──► kamera: snapshot JPEG (ISAPI)
   └─ MediaMTX ──Tailscale (lewat Pi)──► kamera: live RTSP → HLS https://cctv-sijagakali.inspiralabs.id
 ```
@@ -50,8 +50,8 @@ Jangan menulis nilai rahasia di chat atau commit — simpan di password manager.
 | **Akun MQTT device** (`node-001` + password) | VPS: `sudo /opt/server-setup/bin/mqtt-user.sh add <device_id>` (password dicetak sekali) | ESP32 `MQTT_USER` / `MQTT_PASSWORD`. `node-001` **sudah dibuat**; passwordnya tersimpan di VPS `/srv/apps/sijagakali-api/.mqtt-node-001.pass` |
 | **Akun MQTT backend** (`sijagakali-backend`) | Sudah ada di broker infra | VPS `.env` sijagakali-api **dan** sijagakali-ota (`MQTT_USERNAME`/`MQTT_PASSWORD`). Jangan dipakai di ESP32 |
 | **WiFi router** (SSID + password) | Halaman admin TL-MR100 | ESP32 `WIFI_SSID`/`WIFI_PASSWORD`; Raspberry Pi bila tidak memakai kabel LAN |
-| **User kamera** (username + password, hak *Live View*) | Web admin kamera | VPS `.env` sijagakali-api: `CCTV_USERNAME`/`CCTV_PASSWORD` (saat ini username `sijagakali-sukses`) **dan** VPS `deploy/mediamtx.yml` (`rtsp://USER:PASS@IP...`) |
-| **IP statis kamera** (saat ini `192.168.1.101`) | Kamera (atau reservasi DHCP router) | Dashboard → CCTV "IP kamera di LAN lapangan"; VPS `deploy/mediamtx.yml` |
+| **User kamera** (username + password, hak *Live View*) | Web admin kamera | VPS `.env` sijagakali-api: `CCTV_USERNAME`/`CCTV_PASSWORD` (saat ini username `sijagakali`) **dan** VPS `deploy/mediamtx.yml` (`rtsp://USER:PASS@IP...`) |
+| **IP statis kamera** (saat ini `192.168.1.64`) | Kamera (atau reservasi DHCP router) | Dashboard → CCTV "IP kamera di LAN lapangan"; VPS `deploy/mediamtx.yml` |
 | **Subnet LAN** (`192.168.1.0/24`) | Router | Raspberry Pi `tailscale up --advertise-routes=...` |
 | **Akun Tailscale** | tailscale.com (gratis) | Raspberry Pi **dan** VPS harus login ke tailnet yang sama |
 | **URL live** | Otomatis: `https://cctv-sijagakali.inspiralabs.id/cam-<device_id>/index.m3u8` | Dashboard → CCTV "URL streaming (live)" |

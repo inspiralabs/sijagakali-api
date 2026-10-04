@@ -3,7 +3,7 @@
 Internet lokasi memakai 4G (CGNAT, tanpa IP publik), jadi VPS tidak bisa langsung
 menghubungi kamera. Raspberry Pi di LAN yang sama menjadi **Tailscale subnet router**:
 Pi membuka koneksi terenkripsi keluar ke tailnet, sehingga VPS bisa menjangkau
-`192.168.1.101` (snapshot + live) tanpa membuka port apa pun di router.
+`192.168.1.64` (snapshot + live) tanpa membuka port apa pun di router.
 
 Pi **hanya** untuk kamera. ESP32 tidak membutuhkannya. Kalau Pi mati, notifikasi level
 air tetap jalan; hanya foto/live yang tidak tersedia (WA terkirim teks saja).
@@ -36,7 +36,7 @@ Nilai yang dipakai di panduan ini (ganti bila berbeda):
 | Username Pi | `sjk` (bebas, **bukan** `pi`/`admin`) |
 | Subnet LAN router | `192.168.1.0/24`, gateway `192.168.1.1` |
 | IP tetap Pi | `192.168.1.10` |
-| IP kamera | `192.168.1.101` |
+| IP kamera | `192.168.1.64` |
 
 ---
 
@@ -227,8 +227,8 @@ Kalau microSD rusak: tulis image ke microSD baru, pasang → Pi kembali seperti 
    kalau laptop juga memasang Tailscale dan login ke tailnet yang sama:
    ```bash
    ssh sjk@sijagakali-pi-node-001        # lewat Tailscale (Tailscale SSH)
-   curl --digest -u sijagakali-sukses:PASSWORD -s -o /dev/null -w '%{http_code} %{content_type}\n' \
-     http://192.168.1.101/ISAPI/Streaming/channels/101/picture
+   curl --digest -u sijagakali:PASSWORD -s -o /dev/null -w '%{http_code} %{content_type}\n' \
+     http://192.168.1.64/ISAPI/Streaming/channels/101/picture
    ```
    Harus `200 image/jpeg` (user/password kamera: [01 — CCTV](01-cctv.md) langkah 4).
 
@@ -247,7 +247,7 @@ Di admin Tailscale: VPS → **Disable key expiry**.
 
 ```bash
 # 2. Uji dari host VPS
-ping -c 3 192.168.1.101
+ping -c 3 192.168.1.64
 
 # 3. Container Docker (network edge) harus bisa lewat tailnet → NAT
 EDGE_SUBNET=$(docker network inspect edge -f '{{(index .IPAM.Config 0).Subnet}}')
@@ -255,8 +255,8 @@ sudo iptables -t nat -A POSTROUTING -s "$EDGE_SUBNET" -o tailscale0 -j MASQUERAD
 sudo apt-get install -y iptables-persistent && sudo netfilter-persistent save
 
 # 4. VERIFIKASI WAJIB dari dalam container
-docker run --rm --network edge curlimages/curl --digest -u sijagakali-sukses:PASSWORD -s -o /dev/null \
-  -w '%{http_code} %{content_type}\n' http://192.168.1.101/ISAPI/Streaming/channels/101/picture
+docker run --rm --network edge curlimages/curl --digest -u sijagakali:PASSWORD -s -o /dev/null \
+  -w '%{http_code} %{content_type}\n' http://192.168.1.64/ISAPI/Streaming/channels/101/picture
 ```
 Harus `200 image/jpeg`. Bila timeout: `ip route show table 52 | grep 192.168.1` (route
 tailnet ada?) dan `sudo iptables -t nat -S POSTROUTING` (aturan MASQUERADE ada?).
