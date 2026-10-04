@@ -7,6 +7,7 @@ import {
   DEPLOYMENT_WA_COLUMNS,
   type SkipImageReason,
 } from '../services/notificationMessage.js';
+import { latestCctvImagePath } from '../services/latestCctvImagePath.js';
 import type { RouteDeps } from '../types/deps.js';
 
 export async function registerNotificationRoutes(app: FastifyInstance, deps: RouteDeps) {
@@ -91,18 +92,7 @@ export async function registerNotificationRoutes(app: FastifyInstance, deps: Rou
       const overridePath = cctv_image_path?.trim();
       let imagePath = overridePath || null;
 
-      if (!imagePath) {
-        const { data: latestReading } = await supabase
-          .from('sensor_readings')
-          .select('cctv_image_path')
-          .eq('deployment_slug', slug)
-          .eq('device_id', device_id)
-          .not('cctv_image_path', 'is', null)
-          .order('recorded_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        imagePath = latestReading?.cctv_image_path ?? null;
-      }
+      if (!imagePath) imagePath = await latestCctvImagePath(supabase, slug, device_id);
 
       if (!imagePath) {
         skipImageReason = 'no_path';
