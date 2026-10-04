@@ -7,7 +7,7 @@
 #   ssh <user>@<ip-pi> 'sudo bash raspberry-pi/setup.sh'
 #
 # Nilai lokasi (hanya dipakai saat /etc/sijagakali/site.conf belum ada):
-#   sudo SITE_NAME=bojongkulur SITE_SUBNET=192.168.1.0/24 CAMERA_IP=192.168.1.101 bash raspberry-pi/setup.sh
+#   sudo SITE_NAME=bojongkulur SITE_SUBNET=192.168.1.0/24 CAMERA_IP=192.168.1.64 bash raspberry-pi/setup.sh
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "Jalankan dengan sudo"; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
@@ -22,7 +22,7 @@ SITE_NAME=${SITE_NAME:-bojongkulur}
 # Subnet LAN router di lokasi; Tailscale meneruskan subnet ini ke VPS
 SITE_SUBNET=${SITE_SUBNET:-192.168.1.0/24}
 # IP kamera Hikvision (dipakai sjk-health)
-CAMERA_IP=${CAMERA_IP:-192.168.1.101}
+CAMERA_IP=${CAMERA_IP:-192.168.1.64}
 CONF
 install -m 755 "$HERE/sjk-apply" "$HERE/sjk-health" /usr/local/bin/
 

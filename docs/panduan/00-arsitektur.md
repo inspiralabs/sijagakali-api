@@ -13,7 +13,7 @@ pakai alamat apa.** Alur data level kode (topik MQTT, file, sequence lengkap) ad
 │                                                │        │                                                                              │
 │  ESP32-C5 + sensor ──WiFi──────────────────────┼─mqtts──┼─► mosquitto ─► mqtt-collector ─► Supabase ─► data-processing ─► gateway ─► WA │
 │                                                │  8883  │                                                     │                         │
-│  Kamera Hikvision 192.168.1.101 ──LAN/PoE      │        │   api (REST admin) ◄── dashboard (Vercel)          │ snapshot                │
+│  Kamera Hikvision 192.168.1.64 ──LAN/PoE      │        │   api (REST admin) ◄── dashboard (Vercel)          │ snapshot                │
 │        ▲                                       │        │   MediaMTX (HLS)  ◄── browser warga                 │                         │
 │        │ LAN                                   │        │        │ RTSP on-demand        ┌────────────────────┘                         │
 │  Raspberry Pi (Tailscale subnet router) ◄══════╪═WireGuard (Tailscale, tanpa port terbuka)═╪═ tailscale0 + NAT network "edge"            │
@@ -29,7 +29,7 @@ Dua jalur dari lokasi ke VPS, **saling lepas**:
 | Tailscale (WireGuard) | Snapshot & live kamera | Pi ⇄ VPS, langsung atau relay DERP Singapura | **Ya** |
 
 Pi mati → level air & WA tetap jalan, hanya foto/live hilang (WA terkirim teks).
-ESP32 mati → WA "⚠️ Sensor gangguan/offline" dari server.
+ESP32/Pi/kamera bermasalah → laporan ke Telegram (bukan WA): VPS `/opt/server-setup/bin/field-health.sh` (timer `inspiralabs-field-health`, tiap 5 menit) mengirim kartu status ESP32, Pi, kamera, route Tailscale, NAT, snapshot, dan WA ke topik Telegram **SiJagaKali**.
 
 ## 2. Komponen & alamat
 
@@ -61,13 +61,13 @@ ESP32 mati → WA "⚠️ Sensor gangguan/offline" dari server.
 |---|---|---|
 | Router TL-MR100 | `192.168.1.1` | LAN `192.168.1.0/24` |
 | Raspberry Pi | DHCP (sebaiknya reservasi), Tailscale `100.82.135.110` | `/etc/sijagakali/site.conf`, `sjk-health` |
-| Kamera Hikvision | `192.168.1.101` statis | ISAPI port 80, RTSP 554 |
+| Kamera Hikvision | `192.168.1.64` statis | ISAPI port 80, RTSP 554 |
 | ESP32 | DHCP | Device ID `node-001` |
 
 ## 3. Jalur VPS → kamera (snapshot & live), langkah demi langkah
 
 ```
-container (172.18.x.x)  ──minta 192.168.1.101──►
+container (172.18.x.x)  ──minta 192.168.1.64──►
   1. VPS: route table 52   192.168.1.0/24 dev tailscale0      (dari Pi, disetujui di admin Tailscale)
   2. VPS: NAT              src 172.18.x.x → 100.87.9.39        (service sijagakali-tailscale-nat)
   3. Tailscale             bungkus WireGuard → Pi              (langsung UDP, atau relay DERP Singapura)
@@ -82,13 +82,13 @@ container (172.18.x.x)  ──minta 192.168.1.101──►
 | Berkala `snapshot_interval_min` (default 15) | data-processing | 102 (sub) | ±50 KB |
 | Tombol "Ambil snapshot" admin | api | 101 | ±300–500 KB |
 
-`GET http://192.168.1.101/ISAPI/Streaming/channels/<ch>/picture` (digest, user `CCTV_USERNAME`,
+`GET http://192.168.1.64/ISAPI/Streaming/channels/<ch>/picture` (digest, user `CCTV_USERNAME`,
 batas 8 detik) → Storage `cctv-images/<slug>/<device>/<tanggal>/<ts>_<device>.jpg` →
 `device_configs.last_snapshot_path` (dashboard update realtime) → (alarm) WA foto + teks.
 
 ### Live
 Browser → `cctv-sijagakali` → MediaMTX; belum ada sesi → buka
-`rtsp://USER:PASS@192.168.1.101:554/Streaming/Channels/102` lewat jalur di atas → HLS ke semua
+`rtsp://USER:PASS@192.168.1.64:554/Streaming/Channels/102` lewat jalur di atas → HLS ke semua
 penonton (satu tarikan dari lokasi). Tanpa penonton ±10 detik → RTSP ditutup. Player berhenti
 otomatis setelah 5 menit.
 
@@ -128,7 +128,7 @@ Daftar lengkap nilai yang harus sama di beberapa tempat: [README — peta kreden
 | WA tidak terkirim | VPS | `sudo -u deploy docker logs --tail=50 sijagakali-api-notification-gateway-1` |
 | Snapshot/live gagal | Pi | `sjk-health` (Tailscale online? route disetujui? kamera terjangkau?) |
 | | VPS host | `tailscale status`; `ip route show table 52 \| grep 192.168.1`; `systemctl is-active sijagakali-tailscale-nat` |
-| | VPS container | `sudo docker run --rm --network edge curlimages/curl --digest -u USER:PASS -s -o /dev/null -w '%{http_code}\n' http://192.168.1.101/ISAPI/Streaming/channels/101/picture` → `200` |
+| | VPS container | `sudo docker run --rm --network edge curlimages/curl --digest -u USER:PASS -s -o /dev/null -w '%{http_code}\n' http://192.168.1.64/ISAPI/Streaming/channels/101/picture` → `200` |
 | | VPS | `sudo -u deploy docker logs --tail=30 sijagakali-api-mediamtx-1` |
 | OTA tidak jalan | Dashboard OTA | Device **Online**? Riwayat: Menunggu/Gagal + detail |
 | Pi tidak bisa diakses | Admin Tailscale | `sijagakali-pi-001` Connected? Daya cukup (`vcgencmd get_throttled` = `0x0`)? |
