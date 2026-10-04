@@ -10,6 +10,17 @@ const qrcode = require('qrcode-terminal') as typeof import('qrcode-terminal');
 
 import type { Client as WaClient } from 'whatsapp-web.js';
 import { patchMediaModelId } from './waPatches.js';
+import { createReadyWatchdog } from './readyWatchdog.js';
+
+/** Tutup Chromium dengan rapi (sesi WA tersimpan utuh), lalu keluar → Docker menyalakan ulang gateway. */
+async function exitForRestart(why: string): Promise<never> {
+  console.error(`[gateway] ${why} — restart gateway.`);
+  const closed = _client?.destroy().catch(() => undefined) ?? Promise.resolve();
+  await Promise.race([closed, new Promise((r) => setTimeout(r, 10_000))]);
+  process.exit(1);
+}
+
+const readyWatchdog = createReadyWatchdog((why) => void exitForRestart(why), 3 * 60_000);
 
 let _client: WaClient | null = null;
 let _ready = false;
@@ -50,11 +61,13 @@ export async function getWhatsAppClient(): Promise<WaClient> {
   });
 
   _client.on('qr', (qr: string) => {
+    readyWatchdog.qr();
     console.log('[gateway] Scan QR berikut dari WhatsApp > Linked Devices:');
     qrcode.generate(qr, { small: true });
   });
 
   _client.on('authenticated', () => {
+    readyWatchdog.authenticated();
     console.log('[gateway] Autentikasi berhasil.');
   });
 
@@ -65,6 +78,7 @@ export async function getWhatsAppClient(): Promise<WaClient> {
 
   _client.on('ready', async () => {
     _ready = true;
+    readyWatchdog.ready();
     const wid = (_client as WaClient & { info?: { wid?: { _serialized?: string } } })
       .info?.wid?._serialized;
     console.log('[gateway] WhatsApp client ready. Akun:', wid ?? '—');
@@ -100,6 +114,8 @@ export async function getWhatsAppClient(): Promise<WaClient> {
   _client.on('disconnected', (reason: string) => {
     _ready = false;
     console.warn('[gateway] WhatsApp terputus:', reason);
+    // Client tidak menyambung ulang sendiri; restart memulihkan sesi (atau menampilkan QR bila LOGOUT).
+    void exitForRestart(`WhatsApp terputus (${reason})`);
   });
 
   await _client.initialize();
