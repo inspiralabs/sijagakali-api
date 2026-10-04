@@ -7,6 +7,9 @@ OUT=/run/sijagakali/last-report
 [ -r "$CONF" ] || exit 0   # belum dikonfigurasi: Pi tetap jalan sebagai jembatan kamera
 . "$CONF"
 mkdir -p /run/sijagakali
+if [ -z "${MQTT_DEVICE_ID:-}" ] || [ -z "${MQTT_PASSWORD:-}" ]; then
+  echo "$(date -Iseconds) GAGAL mqtt.conf tidak lengkap (MQTT_DEVICE_ID/MQTT_PASSWORD)" > "$OUT"; exit 1
+fi
 temp=$(vcgencmd measure_temp | grep -oE '[0-9]+(\.[0-9]+)?')
 if [ -z "$temp" ]; then echo "$(date -Iseconds) GAGAL baca suhu" > "$OUT"; exit 1; fi
 if err=$(timeout 20 mosquitto_pub -h mqtt.inspiralabs.id -p 8883 --capath /etc/ssl/certs \
