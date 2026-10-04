@@ -6,6 +6,11 @@ row Lokasi "$SITE_NAME (subnet $SITE_SUBNET)"
 t=$(vcgencmd get_throttled | cut -d= -f2)
 if [ "$t" = "0x0" ]; then row Daya "OK"; else row Daya "MASALAH ($t) - ganti adaptor/kabel 5V 2.5A"; fi
 row Suhu "$(vcgencmd measure_temp | cut -d= -f2)"
+if [ -e /etc/sijagakali/mqtt.conf ]; then   # -e, bukan -r: sjk-health jalan tanpa sudo, file mode 600
+  row "Lapor MQTT" "$(cat /run/sijagakali/last-report 2>/dev/null || echo 'belum ada kiriman')"
+else
+  row "Lapor MQTT" "belum dikonfigurasi (/etc/sijagakali/mqtt.conf)"
+fi
 row Disk "$(df -h / | awk 'NR==2{print $5" terpakai, sisa "$4}')"
 row IP "$(hostname -I)"
 if ts=$(tailscale status --json 2>/dev/null) && [ "$(echo "$ts" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("BackendState"))')" = "Running" ]; then
