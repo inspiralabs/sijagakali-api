@@ -24,7 +24,7 @@ SITE_SUBNET=${SITE_SUBNET:-192.168.1.0/24}
 # IP kamera Hikvision (dipakai sjk-health)
 CAMERA_IP=${CAMERA_IP:-192.168.1.64}
 CONF
-install -m 755 "$HERE/sjk-apply" "$HERE/sjk-health" /usr/local/bin/
+install -m 755 "$HERE/sjk-apply" "$HERE/sjk-health" "$HERE/sjk-report" /usr/local/bin/
 
 log "2. update sistem + update keamanan otomatis"
 apt-get update -qq
@@ -62,6 +62,30 @@ printf 'net.ipv4.ip_forward = 1\nnet.ipv6.conf.all.forwarding = 1\n' > /etc/sysc
 sysctl -p /etc/sysctl.d/99-tailscale.conf >/dev/null
 systemctl enable --now tailscaled
 
+log "7b. laporan suhu ke server (MQTT, tiap 2 menit)"
+apt-get -y -qq install mosquitto-clients
+cat > /etc/systemd/system/sjk-report.service <<'UNIT'
+[Unit]
+Description=SiJagaKali: kirim suhu Pi ke MQTT
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sjk-report
+UNIT
+cat > /etc/systemd/system/sjk-report.timer <<'UNIT'
+[Unit]
+Description=SiJagaKali: kirim suhu Pi tiap 2 menit
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+[Install]
+WantedBy=timers.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now sjk-report.timer
+[ -f /etc/sijagakali/mqtt.conf ] || echo "   Catatan: buat /etc/sijagakali/mqtt.conf (lihat docs/panduan/02-raspberry-pi.md) agar suhu terkirim."
+
 log "8. SSH hanya dengan key"
 KEYS="$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)/.ssh/authorized_keys"
 if [ -s "$KEYS" ]; then
@@ -78,6 +102,7 @@ cat > /etc/motd <<'MOTD'
     sjk-health                          cek daya, suhu, disk, tailscale, kamera
     sudo nano /etc/sijagakali/site.conf ubah subnet/IP kamera lokasi
     sudo sjk-apply                      terapkan perubahan site.conf
+    sudo sjk-report                     kirim suhu ke server sekarang (uji)
 
 MOTD
 
