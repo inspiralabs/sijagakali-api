@@ -26,6 +26,8 @@ export const ENV = {
   MQTT_PASSWORD: optional_env('MQTT_PASSWORD'),
   MQTT_CLIENT_ID_PREFIX: optional_env('MQTT_CLIENT_ID_PREFIX', 'sijagakali'),
   DEFAULT_DEPLOYMENT_SLUG: optional_env('DEFAULT_DEPLOYMENT_SLUG', 'sijagakali-bojong-kulur'),
+  /** Raspberry Pi lokasi → device yang kartunya menampilkan suhu Pi: "pi-id=device-id,..." */
+  PI_DEVICE_MAP: optional_env('PI_DEVICE_MAP', 'sijagakali-pi-001=node-001'),
   FASTIFY_PORT: Number(optional_env('FASTIFY_PORT', '3100')),
   ALLOWED_ORIGIN: optional_env('ALLOWED_ORIGIN', 'http://localhost:5173'),
   /**
