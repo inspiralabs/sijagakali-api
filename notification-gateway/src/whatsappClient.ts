@@ -9,6 +9,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js') as typeof import('whats
 const qrcode = require('qrcode-terminal') as typeof import('qrcode-terminal');
 
 import type { Client as WaClient } from 'whatsapp-web.js';
+import { patchMediaModelId } from './waPatches.js';
 
 let _client: WaClient | null = null;
 let _ready = false;
@@ -69,6 +70,14 @@ export async function getWhatsAppClient(): Promise<WaClient> {
     console.log('[gateway] WhatsApp client ready. Akun:', wid ?? '—');
 
     await patchNewsletterAvParams(_client!);
+    try {
+      await (_client as WaClient & { pupPage: { evaluate: (fn: () => void) => Promise<void> } }).pupPage.evaluate(
+        patchMediaModelId as () => void
+      );
+      console.log('[gateway] Patch __x_id (kirim media) terpasang.');
+    } catch (err) {
+      console.warn('[gateway] Gagal memasang patch __x_id:', err instanceof Error ? err.message : err);
+    }
 
     // Listing channel hanya perlu dijalankan saat WHATSAPP_CHANNEL_ID belum diisi —
     // kalau sudah ada di env, resolveChannelTarget langsung pakai itu tanpa listChannels.

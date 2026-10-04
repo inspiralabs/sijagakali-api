@@ -90,7 +90,7 @@ async function sendToChannel(
       return { ok: true, imageAttached: true };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error('[notification-gateway] MessageMedia.fromUrl gagal, fallback teks:', msg);
+      console.error('[notification-gateway] Unduh/kirim gambar gagal, fallback teks:', msg);
       try {
         await wa.sendMessage(channelTarget, message);
         console.log(`[notification-gateway] Terkirim (teks saja, fallback) ke channel ${channelTarget}`);
