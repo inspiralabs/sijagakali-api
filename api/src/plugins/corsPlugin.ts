@@ -3,11 +3,22 @@ import type { FastifyInstance } from 'fastify';
 
 export type CorsEnv = Pick<{ ALLOWED_ORIGIN: string }, 'ALLOWED_ORIGIN'>;
 
-function parseAllowedOrigins(raw: string): string[] {
+/**
+ * Browser mengirim Origin tanpa path. Entri seperti `https://x.id/public` atau `http://host/`
+ * dinormalkan ke origin murni agar tidak diam-diam menolak semua request.
+ */
+export function parseAllowedOrigins(raw: string): string[] {
   return raw
     .split(',')
     .map((o) => o.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((o) => {
+      try {
+        return new URL(o).origin;
+      } catch {
+        return o;
+      }
+    });
 }
 
 /** CORS: dukung satu atau banyak origin (pisahkan koma di ENV.ALLOWED_ORIGIN). */

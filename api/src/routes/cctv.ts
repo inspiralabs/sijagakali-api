@@ -20,6 +20,11 @@ export async function registerCctvRoutes(app: FastifyInstance, deps: RouteDeps) 
         .createSignedUrl(path, expires);
 
       if (error) {
+        // File sudah dihapus dari Storage → bukan kesalahan server.
+        if (/not found/i.test(error.message)) {
+          req.log.warn({ msg: 'signed URL: objek tidak ada', path });
+          return reply.code(404).send({ error: 'Foto tidak ditemukan' });
+        }
         req.log.error({ msg: 'signed URL error', path, error: error.message });
         return reply.code(500).send({ error: error.message });
       }
