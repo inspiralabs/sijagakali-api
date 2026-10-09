@@ -25,7 +25,7 @@ services:
     expose: ["3100"]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.sijagakali-api.rule=Host(`api-sijagakali.inspiralabs.id`)
+      - traefik.http.routers.sijagakali-api.rule=Host(`api-sijagakali.inspiralabs.id`) || Host(`api.sijagakali.id`)
       - traefik.http.services.sijagakali-api.loadbalancer.server.port=3100
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -86,7 +86,7 @@ services:
     expose: ["8888"]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.sijagakali-cctv.rule=Host(`cctv-sijagakali.inspiralabs.id`)
+      - traefik.http.routers.sijagakali-cctv.rule=Host(`cctv-sijagakali.inspiralabs.id`) || Host(`cctv.sijagakali.id`)
       - traefik.http.services.sijagakali-cctv.loadbalancer.server.port=8888
 
 volumes:
