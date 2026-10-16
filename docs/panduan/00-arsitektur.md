@@ -112,7 +112,8 @@ otomatis setelah 5 menit.
 | IP kamera / URL live / interval snapshot | Dashboard → Pengaturan Perangkat → CCTV |
 | User/password kamera | Kamera **dan** VPS `.env` (`CCTV_*`) **dan** VPS `deploy/mediamtx.yml` |
 | Subnet LAN lokasi | Pi `/etc/sijagakali/site.conf` → `sudo sjk-apply` → setujui di admin Tailscale |
-| Ambang, interval baca sensor | Dashboard → Pengaturan Perangkat |
+| Ambang status, interval pengiriman data (jeda maksimal; perubahan ≥ 10 cm langsung dikirim) | Dashboard → Pengaturan Perangkat |
+| Tinggi sensor (dasar perhitungan level) | Firmware `SENSOR_HEIGHT_CM_DEFAULT` atau perintah `calibrate` — nilai di dashboard hanya catatan |
 | Akun MQTT device | VPS `sudo /opt/server-setup/bin/mqtt-user.sh add/del <device_id>` + firmware |
 | Firmware | [04 — OTA](04-ota.md) |
 | Template & kontak WA | Dashboard admin → pengaturan notifikasi WA (template & kontak) |
