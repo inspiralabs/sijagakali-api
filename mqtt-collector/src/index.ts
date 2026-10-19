@@ -4,6 +4,7 @@ import {
   TOPICS,
   extractDeviceId,
   type SensorDataPayload,
+  type SensorStatusPayload,
   type CctvMetaPayload,
 } from '@sijagakali/shared';
 
@@ -15,6 +16,8 @@ const lastSeenThrottleMs = ENV.LAST_SEEN_THROTTLE_MS;
 
 /** device key → timestamp ms terakhir UPDATE last_seen_at ke DB */
 const lastSeenUpdatedAt = new Map<string, number>();
+/** device key → last_error terakhir yang tersimpan di DB (tidak ada = belum pernah ditulis) */
+const lastErrorWritten = new Map<string, string | null>();
 
 /**
  * Peta sementara correlation_id → deployment_slug dari pesan cctv/meta opsional.
@@ -148,17 +151,22 @@ async function handleSensorStatus(topic: string, payload: Buffer) {
   if (!deviceId) return;
 
   try {
-    const status = JSON.parse(payload.toString('utf8')) as { deployment_slug?: string; timestamp?: string };
+    const status = JSON.parse(payload.toString('utf8')) as SensorStatusPayload;
     const deploymentSlug = status.deployment_slug ?? defaultDeployment;
+    const lastError = status.last_error ?? null;
 
     const throttleKey = `${deploymentSlug}:${deviceId}`;
     const now = Date.now();
     const lastUpdate = lastSeenUpdatedAt.get(throttleKey) ?? 0;
-    if (now - lastUpdate < lastSeenThrottleMs) return;
+    // Sensor mulai gagal / pulih ditulis segera agar dashboard tidak menunggu throttle.
+    // Teks galat berubah tiap siklus (penghitung xN), jadi yang dibandingkan hanya ada/tidaknya galat.
+    const prevError = lastErrorWritten.get(throttleKey);
+    const errorFlipped = prevError === undefined || (prevError === null) !== (lastError === null);
+    if (!errorFlipped && now - lastUpdate < lastSeenThrottleMs) return;
 
     const { error } = await supabase
       .from('device_configs')
-      .update({ last_seen_at: status.timestamp ?? new Date().toISOString() })
+      .update({ last_seen_at: status.timestamp ?? new Date().toISOString(), last_error: lastError })
       .eq('deployment_slug', deploymentSlug)
       .eq('device_id', deviceId);
 
@@ -166,6 +174,7 @@ async function handleSensorStatus(topic: string, payload: Buffer) {
       console.error('[collector] UPDATE last_seen_at failed:', error.message);
     } else {
       lastSeenUpdatedAt.set(throttleKey, now);
+      lastErrorWritten.set(throttleKey, lastError);
     }
   } catch {
     console.warn('[collector] sensor/status parse error for device', deviceId);
