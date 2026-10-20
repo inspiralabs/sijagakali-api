@@ -18,7 +18,8 @@ RUN npm run build && npm prune --omit=dev
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
 # /app milik node: whatsapp-web.js menulis ./.wwebjs_cache di working dir
-RUN mkdir -p /app && chown node:node /app
+# /data/spool: antrean sensor/data mqtt-collector saat DB gagal (volume collector-spool)
+RUN mkdir -p /app /data/spool && chown node:node /app /data/spool
 WORKDIR /app
 COPY --from=build --chown=node:node /app ./
 USER node

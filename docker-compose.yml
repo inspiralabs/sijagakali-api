@@ -39,6 +39,9 @@ services:
     command: ["node", "mqtt-collector/dist/index.js"]
     environment:
       MQTT_BROKER_URL: mqtt://mosquitto:1883   # broker infra bersama (alias di network edge)
+      COLLECTOR_SPOOL_DIR: /data/spool          # sensor/data saat DB gagal, dimasukkan ulang tiap menit
+    volumes:
+      - collector-spool:/data/spool
     healthcheck:
       disable: true
 
@@ -91,6 +94,7 @@ services:
 
 volumes:
   wa-session:
+  collector-spool:
 
 networks:
   edge:
