@@ -20,3 +20,6 @@ CLAUDE.md
 
 # Konfigurasi MediaMTX asli (berisi kredensial kamera)
 deploy/mediamtx.yml
+
+# Spool mqtt-collector saat DB gagal (lokal; di VPS di volume collector-spool)
+spool/

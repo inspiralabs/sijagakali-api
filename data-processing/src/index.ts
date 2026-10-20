@@ -16,6 +16,8 @@ const defaultDeployment = ENV.DEFAULT_DEPLOYMENT_SLUG;
 
 const POLL_INTERVAL_MS = ENV.INGESTION_POLL_INTERVAL_MS;
 const DISPATCH_DEBOUNCE_MS = ENV.DISPATCH_DEBOUNCE_MS;
+/** Bacaan lebih tua dari ini saat diproses = data susulan → tidak memicu WA. */
+const LATE_READING_NO_NOTIFY_MS = 10 * 60_000;
 
 type MqttIngestionRow = {
   id: string;
@@ -206,6 +208,14 @@ async function tryDispatch(
   );
 
   if (!reading?.id) return true;
+
+  // Data susulan (antrean device saat offline / spool collector) tetap disimpan, tapi tidak memicu
+  // WA dan tidak masuk state shouldNotify: warga tidak perlu peringatan untuk kejadian yang sudah lewat.
+  const lateMs = Date.now() - Date.parse(recordedAt);
+  if (lateMs > LATE_READING_NO_NOTIFY_MS) {
+    console.log(`[processing] data susulan ${Math.round(lateMs / 60_000)} mnt — tanpa notifikasi — device=${resolvedDeviceId}`);
+    return true;
+  }
 
   const notify = shouldNotify(slug, resolvedDeviceId, waterLevelCm, waterStatus, config);
   if (notify) {

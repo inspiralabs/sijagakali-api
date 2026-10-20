@@ -4,13 +4,22 @@ import { ENV } from './env.js';
 /**
  * Buat koneksi MQTT baru. Setiap service membuat koneksinya sendiri
  * dengan clientId unik agar tidak bentrok di broker.
+ *
+ * persistentSession: clientId tetap + clean=false — broker menyimpan langganan dan pesan QoS 1
+ * selama client terputus/restart. Hanya untuk satu instance per serviceId (instance kedua
+ * dengan clientId sama menendang yang pertama).
  */
-export function createMqttClient(serviceId: string): MqttClient {
-  const clientId = `${ENV.MQTT_CLIENT_ID_PREFIX}-${serviceId}-${Date.now()}`;
+export function createMqttClient(
+  serviceId: string,
+  { persistentSession = false }: { persistentSession?: boolean } = {}
+): MqttClient {
+  const clientId = persistentSession
+    ? `${ENV.MQTT_CLIENT_ID_PREFIX}-${serviceId}`
+    : `${ENV.MQTT_CLIENT_ID_PREFIX}-${serviceId}-${Date.now()}`;
 
   const opts: mqtt.IClientOptions = {
     clientId,
-    clean: true,
+    clean: !persistentSession,
     reconnectPeriod: 3000,
     connectTimeout: 10_000,
   };

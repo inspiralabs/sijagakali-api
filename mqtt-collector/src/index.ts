@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { join } from 'node:path';
+import { flushSpool, saveDurably, type InsertFn } from './durableInsert.js';
 import { createMqttClient, getSupabase, getSupabaseStorage, ENV, cctvStoragePath } from '@sijagakali/shared';
 import {
   TOPICS,
@@ -32,7 +34,47 @@ setInterval(() => {
   }
 }, 60_000);
 
-const client = createMqttClient('collector');
+// Sesi persisten: selama collector mati/restart (mis. deploy), broker menahan pesan QoS 1 untuknya.
+const client = createMqttClient('collector', { persistentSession: true });
+
+// sensor/data diproses di handleMessage, bukan di 'message': mqtt.js baru mengirim PUBACK ke broker
+// setelah callback ini dipanggil. Jadi broker baru menganggap pesan selesai setelah data aman di DB
+// atau spool; selain itu pesan tetap di broker dan dikirim ulang saat collector tersambung lagi.
+client.handleMessage = (packet, callback) => {
+  if (!packet.topic.endsWith('/sensor/data')) return callback();
+  handleSensorData(packet.topic, packet.payload as Buffer).then(
+    (safe) => {
+      if (safe) return callback();
+      // DB dan disk sama-sama gagal: jangan PUBACK. Restart (docker) → broker mengirim ulang.
+      console.error('[collector] sensor/data tidak bisa disimpan di mana pun — restart');
+      process.exit(1);
+    },
+    (err) => {
+      console.error('[collector] sensor/data handler error — restart', err);
+      process.exit(1);
+    }
+  );
+};
+
+const spoolFile = join(process.env.COLLECTOR_SPOOL_DIR ?? 'spool', 'mqtt_ingestion.jsonl');
+const insertIngestion: InsertFn = (row) =>
+  supabase.from('mqtt_ingestion').insert(row).abortSignal(AbortSignal.timeout(5_000));
+
+let flushing = false;
+async function flushSpoolTick() {
+  if (flushing) return;
+  flushing = true;
+  try {
+    const saved = await flushSpool(insertIngestion, spoolFile);
+    if (saved) console.log(`[collector] spool: ${saved} data susulan tersimpan ke DB`);
+  } catch (err) {
+    console.error('[collector] flush spool gagal:', err instanceof Error ? err.message : String(err));
+  } finally {
+    flushing = false;
+  }
+}
+setInterval(() => void flushSpoolTick(), 60_000);
+void flushSpoolTick();
 
 client.on('connect', () => {
   client.subscribe(
@@ -47,9 +89,7 @@ client.on('connect', () => {
 
 client.on('message', async (topic: string, payload: Buffer) => {
   try {
-    if (topic.endsWith('/sensor/data')) {
-      await handleSensorData(topic, payload);
-    } else if (topic.endsWith('/cctv/image')) {
+    if (topic.endsWith('/cctv/image')) {
       await handleCctvImage(topic, payload);
     } else if (topic.endsWith('/cctv/meta')) {
       handleCctvMeta(topic, payload);
@@ -61,9 +101,10 @@ client.on('message', async (topic: string, payload: Buffer) => {
   }
 });
 
-async function handleSensorData(topic: string, payload: Buffer) {
+/** @returns true = data aman (DB/spool) atau tidak layak dikirim ulang (rusak) → boleh PUBACK */
+async function handleSensorData(topic: string, payload: Buffer): Promise<boolean> {
   const deviceId = extractDeviceId(topic);
-  if (!deviceId) return;
+  if (!deviceId) return true;
 
   let data: SensorDataPayload;
   try {
@@ -71,25 +112,24 @@ async function handleSensorData(topic: string, payload: Buffer) {
   } catch {
     console.error('[collector] sensor/data JSON parse error for device', deviceId);
     await insertIngestionFailed(deviceId, 'sensor_data', null, 'JSON parse error');
-    return;
+    return true;
   }
 
   const deploymentSlug = data.deployment_slug ?? defaultDeployment;
 
-  const { error } = await supabase.from('mqtt_ingestion').insert({
+  const saved = await saveDurably(insertIngestion, {
     deployment_slug: deploymentSlug,
     device_id: deviceId,
     correlation_id: data.correlation_id,
     message_type: 'sensor_data',
     payload_json: data as unknown as Record<string, unknown>,
     ingest_status: 'parsed_ok',
-  });
+  }, spoolFile);
 
-  if (error) {
-    console.error('[collector] INSERT sensor_data failed:', error.message);
-  } else {
-    console.log(`[collector] sensor_data OK — device=${deviceId} corr=${data.correlation_id}`);
+  if (saved !== 'failed') {
+    console.log(`[collector] sensor_data ${saved === 'db' ? 'OK' : 'SPOOL'} — device=${deviceId} corr=${data.correlation_id}`);
   }
+  return saved !== 'failed';
 }
 
 async function handleCctvImage(topic: string, payload: Buffer) {
